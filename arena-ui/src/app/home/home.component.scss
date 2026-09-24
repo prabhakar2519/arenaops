@@ -1,0 +1,604 @@
+.home-container {
+    min-height: 100vh;
+    overflow-x: hidden;
+    background:
+        linear-gradient(180deg, rgba(3, 10, 14, 0.86), rgba(4, 17, 18, 0.94) 38%, rgba(6, 20, 17, 0.98)),
+        var(--bg-primary);
+    color: #f7fbf8;
+}
+
+.hero-section {
+    width: 100%;
+    min-height: clamp(560px, 86vh, 780px);
+    position: relative;
+}
+
+.hero-visual {
+    position: relative;
+    min-height: clamp(560px, 86vh, 780px);
+    overflow: hidden;
+    isolation: isolate;
+}
+
+.hero-slider,
+.hero-slide {
+    position: absolute;
+    inset: 0;
+}
+
+.hero-slide {
+    opacity: 0;
+    background-size: cover;
+    background-position: center;
+    transform: scale(1.03);
+    transition: opacity 0.8s ease, transform 1.2s ease;
+}
+
+.hero-slide.active {
+    opacity: 1;
+    transform: scale(1);
+}
+
+.hero-visual::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    background:
+        linear-gradient(90deg, rgba(2, 8, 10, 0.92) 0%, rgba(2, 8, 10, 0.68) 42%, rgba(2, 8, 10, 0.18) 100%),
+        linear-gradient(0deg, rgba(3, 12, 11, 0.96) 0%, rgba(3, 12, 11, 0.16) 42%, rgba(3, 12, 11, 0.34) 100%);
+}
+
+.hero-overlay {
+    position: relative;
+    z-index: 2;
+    width: min(100%, 1240px);
+    min-height: clamp(430px, 70vh, 650px);
+    margin: 0 auto;
+    padding: clamp(4rem, 9vh, 7rem) 1.4rem 9rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: flex-start;
+}
+
+.hero-kicker,
+.section-kicker {
+    margin: 0 0 0.85rem;
+    color: #67e8c9;
+    font-size: 0.78rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+}
+
+.hero-overlay h1 {
+    max-width: 760px;
+    margin: 0;
+    font-family: 'Playfair Display', serif;
+    font-size: clamp(3.2rem, 8vw, 7.4rem);
+    line-height: 0.92;
+    color: #ffffff;
+    text-shadow: 0 18px 42px rgba(0, 0, 0, 0.45);
+}
+
+.hero-subtitle {
+    max-width: 620px;
+    margin: 1.25rem 0 0;
+    color: rgba(238, 248, 242, 0.86);
+    font-size: clamp(1rem, 2vw, 1.28rem);
+    line-height: 1.6;
+}
+
+.hero-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.85rem;
+    margin-top: 2rem;
+}
+
+.hero-action {
+    min-height: 46px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    padding: 0.78rem 1.15rem;
+    border: 1px solid rgba(255, 255, 255, 0.24);
+    font-weight: 800;
+    text-decoration: none;
+    cursor: pointer;
+    transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+}
+
+.hero-action.primary {
+    background: #f8f5df;
+    color: #07120f;
+}
+
+.hero-action.secondary {
+    background: rgba(255, 255, 255, 0.12);
+    color: #ffffff;
+    backdrop-filter: blur(12px);
+}
+
+.hero-action:hover {
+    transform: translateY(-2px);
+    border-color: rgba(255, 255, 255, 0.46);
+}
+
+.hero-stats {
+    position: absolute;
+    z-index: 3;
+    left: 50%;
+    bottom: 2.6rem;
+    width: min(calc(100% - 2.8rem), 760px);
+    transform: translateX(-50%);
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    background: rgba(4, 16, 15, 0.72);
+    backdrop-filter: blur(16px);
+}
+
+.hero-stats div {
+    padding: 1rem 1.15rem;
+    border-right: 1px solid rgba(255, 255, 255, 0.13);
+}
+
+.hero-stats div:last-child {
+    border-right: 0;
+}
+
+.hero-stats strong,
+.hero-stats span {
+    display: block;
+}
+
+.hero-stats strong {
+    color: #ffffff;
+    font-size: 1.18rem;
+}
+
+.hero-stats span {
+    margin-top: 0.25rem;
+    color: rgba(236, 248, 241, 0.72);
+    font-size: 0.86rem;
+}
+
+.hero-dots {
+    position: absolute;
+    z-index: 4;
+    right: 1.4rem;
+    bottom: 1.35rem;
+    display: flex;
+    gap: 0.5rem;
+}
+
+.hero-dot {
+    width: 11px;
+    height: 11px;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.62);
+    background: rgba(255, 255, 255, 0.26);
+    cursor: pointer;
+    transition: width 0.2s ease, background 0.2s ease;
+}
+
+.hero-dot.active {
+    width: 28px;
+    background: #67e8c9;
+}
+
+.sports-story-section,
+.experience-section,
+.snapshot-section {
+    width: min(100%, 1240px);
+    margin: 0 auto;
+    padding: clamp(2.4rem, 6vw, 4.5rem) 1.4rem;
+}
+
+.sports-story-section {
+    display: grid;
+    grid-template-columns: minmax(0, 0.82fr) minmax(0, 1.18fr);
+    gap: clamp(1.6rem, 4vw, 3rem);
+    align-items: center;
+}
+
+.story-copy h2 {
+    margin: 0;
+    max-width: 520px;
+    font-family: 'Playfair Display', serif;
+    font-size: clamp(2rem, 4vw, 4rem);
+    line-height: 1;
+    color: #ffffff;
+}
+
+.story-copy p:last-child {
+    max-width: 560px;
+    margin: 1.1rem 0 0;
+    color: rgba(232, 244, 237, 0.74);
+    font-size: 1.02rem;
+    line-height: 1.65;
+}
+
+.sport-gallery {
+    display: grid;
+    grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
+    grid-template-rows: repeat(2, minmax(180px, 1fr));
+    gap: 0.9rem;
+}
+
+.gallery-tile,
+.experience-card {
+    position: relative;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(255, 255, 255, 0.06);
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.22);
+}
+
+.gallery-tile {
+    min-height: 190px;
+    margin: 0;
+}
+
+.gallery-tile.large {
+    grid-row: span 2;
+}
+
+.gallery-tile img,
+.experience-card img {
+    width: 100%;
+    height: 100%;
+    display: block;
+    object-fit: cover;
+}
+
+.gallery-tile::after {
+    content: "";
+    position: absolute;
+    inset: auto 0 0;
+    height: 55%;
+    background: linear-gradient(0deg, rgba(2, 8, 10, 0.86), transparent);
+}
+
+.gallery-tile figcaption {
+    position: absolute;
+    z-index: 2;
+    left: 1rem;
+    right: 1rem;
+    bottom: 0.9rem;
+    color: #ffffff;
+    font-weight: 800;
+}
+
+.experience-section {
+    padding-top: 0;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.95rem;
+}
+
+.experience-card {
+    min-height: 410px;
+}
+
+.experience-card::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(0deg, rgba(3, 11, 11, 0.94), rgba(3, 11, 11, 0.12) 64%);
+}
+
+.experience-card div {
+    position: absolute;
+    z-index: 2;
+    left: 1.1rem;
+    right: 1.1rem;
+    bottom: 1.1rem;
+}
+
+.experience-card h3 {
+    margin: 0;
+    color: #ffffff;
+    font-size: clamp(1.16rem, 2vw, 1.45rem);
+    line-height: 1.18;
+}
+
+.experience-card p:last-child {
+    margin: 0.75rem 0 0;
+    color: rgba(235, 246, 239, 0.72);
+    line-height: 1.45;
+}
+
+.snapshot-section {
+    padding-top: 0;
+    display: grid;
+    gap: 0.9rem;
+}
+
+.snapshot-overview {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.35fr);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(6, 22, 21, 0.76);
+    backdrop-filter: blur(16px);
+}
+
+.overview-copy {
+    padding: 1.15rem 1.25rem;
+    border-right: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.overview-copy h2 {
+    margin: 0;
+    font-family: 'Playfair Display', serif;
+    font-size: clamp(1.45rem, 2.4vw, 2rem);
+    color: #ffffff;
+}
+
+.overview-copy p:last-child {
+    margin: 0.55rem 0 0;
+    color: rgba(232, 244, 237, 0.72);
+    line-height: 1.5;
+}
+
+.overview-metrics {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.overview-metric,
+.snapshot-metric,
+.snapshot-revenue {
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.overview-metric {
+    padding: 1rem;
+    border-top: 0;
+    border-bottom: 0;
+    border-left: 0;
+}
+
+.overview-metric:last-child {
+    border-right: 0;
+}
+
+.overview-metric span,
+.snapshot-metric span,
+.snapshot-revenue span {
+    display: block;
+    margin-bottom: 0.42rem;
+    color: rgba(232, 244, 237, 0.66);
+    font-size: 0.78rem;
+}
+
+.overview-metric strong,
+.snapshot-metric strong,
+.snapshot-revenue strong {
+    color: #ffffff;
+    font-size: 1.22rem;
+    line-height: 1;
+}
+
+.snapshot-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 0.9rem;
+}
+
+.snapshot-card {
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(6, 22, 21, 0.78);
+    backdrop-filter: blur(16px);
+}
+
+.snapshot-card-top {
+    min-height: 88px;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.snapshot-sport {
+    margin: 0;
+    color: #67e8c9;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    font-size: 0.72rem;
+    font-weight: 800;
+}
+
+.snapshot-card h3 {
+    margin: 0.35rem 0 0;
+    color: #ffffff;
+    font-size: 1rem;
+}
+
+.snapshot-link {
+    flex: 0 0 auto;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 999px;
+    padding: 0.5rem 0.74rem;
+    background: #f8f5df;
+    color: #07120f;
+    font-weight: 800;
+    cursor: pointer;
+}
+
+.snapshot-metrics {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.65rem;
+    padding: 0.85rem 1rem 0;
+}
+
+.snapshot-metric {
+    padding: 0.82rem;
+}
+
+.snapshot-revenue {
+    margin: 0.75rem 1rem 1rem;
+    padding: 0.82rem;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.75rem;
+}
+
+@media (max-width: 900px) {
+    .hero-section,
+    .hero-visual {
+        min-height: 650px;
+    }
+
+    .hero-overlay {
+        min-height: 520px;
+        padding-bottom: 10.5rem;
+    }
+
+    .sports-story-section,
+    .experience-section,
+    .snapshot-overview {
+        grid-template-columns: 1fr;
+    }
+
+    .experience-section {
+        padding-top: 0;
+    }
+
+    .overview-copy {
+        border-right: 0;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+    }
+
+    .overview-metrics {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 640px) {
+    .home-container {
+        padding-bottom: 5.5rem;
+    }
+
+    .hero-section,
+    .hero-visual {
+        min-height: 680px;
+    }
+
+    .hero-overlay {
+        padding: 3.5rem 1rem 12rem;
+    }
+
+    .hero-overlay h1 {
+        font-size: clamp(2.7rem, 16vw, 4.6rem);
+    }
+
+    .hero-actions {
+        width: 100%;
+    }
+
+    .hero-action {
+        flex: 1 1 140px;
+    }
+
+    .hero-stats {
+        bottom: 3.1rem;
+        width: calc(100% - 2rem);
+        grid-template-columns: 1fr;
+    }
+
+    .hero-stats div {
+        padding: 0.75rem 0.95rem;
+        border-right: 0;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.13);
+    }
+
+    .hero-stats div:last-child {
+        border-bottom: 0;
+    }
+
+    .hero-dots {
+        left: 1rem;
+        right: auto;
+        bottom: 1.1rem;
+    }
+
+    .sports-story-section,
+    .experience-section,
+    .snapshot-section {
+        padding-left: 1rem;
+        padding-right: 1rem;
+    }
+
+    .sport-gallery {
+        grid-template-columns: 1fr;
+        grid-template-rows: none;
+    }
+
+    .gallery-tile.large {
+        grid-row: auto;
+    }
+
+    .experience-card {
+        min-height: 340px;
+    }
+
+    .overview-metrics,
+    .snapshot-revenue {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .snapshot-card-top {
+        display: block;
+    }
+
+    .snapshot-link {
+        margin-top: 0.75rem;
+    }
+}
+
+:host-context(body.light) .home-container {
+    background:
+        linear-gradient(180deg, rgba(246, 252, 249, 0.92), rgba(232, 247, 240, 0.96)),
+        var(--bg-primary);
+    color: #12313f;
+}
+
+:host-context(body.light) .story-copy h2,
+:host-context(body.light) .overview-copy h2,
+:host-context(body.light) .snapshot-card h3,
+:host-context(body.light) .overview-metric strong,
+:host-context(body.light) .snapshot-metric strong,
+:host-context(body.light) .snapshot-revenue strong {
+    color: #12313f;
+}
+
+:host-context(body.light) .story-copy p:last-child,
+:host-context(body.light) .overview-copy p:last-child,
+:host-context(body.light) .overview-metric span,
+:host-context(body.light) .snapshot-metric span,
+:host-context(body.light) .snapshot-revenue span {
+    color: rgba(39, 72, 92, 0.74);
+}
+
+:host-context(body.light) .snapshot-overview,
+:host-context(body.light) .snapshot-card {
+    background: rgba(255, 255, 255, 0.82);
+    border-color: #d8e7e2;
+    box-shadow: 0 18px 42px rgba(15, 23, 42, 0.08);
+}
+
+:host-context(body.light) .overview-metric,
+:host-context(body.light) .snapshot-metric,
+:host-context(body.light) .snapshot-revenue {
+    background: #ffffff;
+    border-color: #d8e7e2;
+}

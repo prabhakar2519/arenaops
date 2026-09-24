@@ -1,0 +1,256 @@
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.17.xsd">
+
+    <changeSet id="r1-9-extend-customer-lifecycle" author="codex">
+        <addColumn tableName="customer" schemaName="arena">
+            <column name="organization_name" type="VARCHAR(255)"/>
+            <column name="organization_type" type="VARCHAR(80)"/>
+            <column name="primary_contact_name" type="VARCHAR(255)"/>
+            <column name="primary_contact_email" type="VARCHAR(255)"/>
+            <column name="primary_contact_phone" type="VARCHAR(50)"/>
+            <column name="customer_status" type="VARCHAR(30)"/>
+            <column name="access_status" type="VARCHAR(30)"/>
+            <column name="activated_at" type="TIMESTAMP"/>
+            <column name="deactivated_at" type="TIMESTAMP"/>
+            <column name="deactivation_reason" type="VARCHAR(500)"/>
+            <column name="suspended_by" type="VARCHAR(100)"/>
+            <column name="suspended_at" type="TIMESTAMP"/>
+            <column name="suspension_reason" type="VARCHAR(500)"/>
+        </addColumn>
+        <update tableName="customer" schemaName="arena">
+            <column name="organization_name" valueComputed="customer_name"/>
+            <column name="primary_contact_name" valueComputed="owner_name"/>
+            <column name="primary_contact_email" valueComputed="owner_email"/>
+            <column name="primary_contact_phone" valueComputed="owner_phone"/>
+            <column name="customer_status" value="ACTIVE"/>
+            <column name="access_status" value="ALLOWED"/>
+        </update>
+        <createIndex schemaName="arena" tableName="customer" indexName="idx_customer_customer_status">
+            <column name="customer_status"/>
+        </createIndex>
+        <createIndex schemaName="arena" tableName="customer" indexName="idx_customer_access_status">
+            <column name="access_status"/>
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="r1-9-extend-onboarding-code-invitation" author="codex">
+        <modifyDataType schemaName="arena" tableName="customer_onboarding_code" columnName="code" newDataType="VARCHAR(128)"/>
+        <addColumn tableName="customer_onboarding_code" schemaName="arena">
+            <column name="invited_email" type="VARCHAR(255)"/>
+            <column name="activation_code_hash" type="VARCHAR(128)"/>
+            <column name="invitation_status" type="VARCHAR(30)"/>
+            <column name="sent_at" type="TIMESTAMP"/>
+            <column name="consumed_at" type="TIMESTAMP"/>
+            <column name="revoked_at" type="TIMESTAMP"/>
+            <column name="created_by_admin_id" type="VARCHAR(100)"/>
+            <column name="revoked_by_admin_id" type="VARCHAR(100)"/>
+            <column name="revocation_reason" type="VARCHAR(500)"/>
+        </addColumn>
+        <update tableName="customer_onboarding_code" schemaName="arena">
+            <column name="invitation_status" valueComputed="status"/>
+        </update>
+        <createIndex schemaName="arena" tableName="customer_onboarding_code" indexName="idx_invitation_hash">
+            <column name="activation_code_hash"/>
+        </createIndex>
+        <createIndex schemaName="arena" tableName="customer_onboarding_code" indexName="idx_invitation_status">
+            <column name="invitation_status"/>
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="r1-9-create-customer-subscription" author="codex">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <tableExists schemaName="arena" tableName="customer_subscription"/>
+            </not>
+        </preConditions>
+        <createSequence schemaName="arena" sequenceName="seq_customer_subscription" startValue="1"/>
+        <createTable schemaName="arena" tableName="customer_subscription">
+            <column name="id" type="BIGINT">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="customer_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="plan" type="VARCHAR(40)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="subscription_status" type="VARCHAR(30)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="trial_duration_days" type="INT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="trial_started_at" type="TIMESTAMP"/>
+            <column name="trial_ends_at" type="TIMESTAMP"/>
+            <column name="subscription_started_at" type="TIMESTAMP"/>
+            <column name="current_period_start" type="TIMESTAMP"/>
+            <column name="current_period_end" type="TIMESTAMP"/>
+            <column name="next_billing_date" type="TIMESTAMP"/>
+            <column name="cancelled_at" type="TIMESTAMP"/>
+            <column name="cancellation_reason" type="VARCHAR(500)"/>
+            <column name="created_at" type="TIMESTAMP" defaultValueComputed="CURRENT_TIMESTAMP"/>
+            <column name="updated_at" type="TIMESTAMP" defaultValueComputed="CURRENT_TIMESTAMP"/>
+        </createTable>
+        <addForeignKeyConstraint baseTableSchemaName="arena"
+                                 baseTableName="customer_subscription"
+                                 baseColumnNames="customer_id"
+                                 constraintName="fk_subscription_customer"
+                                 referencedTableSchemaName="arena"
+                                 referencedTableName="customer"
+                                 referencedColumnNames="id"/>
+        <createIndex schemaName="arena" tableName="customer_subscription" indexName="idx_subscription_customer">
+            <column name="customer_id"/>
+        </createIndex>
+        <createIndex schemaName="arena" tableName="customer_subscription" indexName="idx_subscription_trial_expiry">
+            <column name="subscription_status"/>
+            <column name="trial_ends_at"/>
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="r1-9-create-customer-payment" author="codex">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <tableExists schemaName="arena" tableName="customer_payment"/>
+            </not>
+        </preConditions>
+        <createSequence schemaName="arena" sequenceName="seq_customer_payment" startValue="1"/>
+        <createTable schemaName="arena" tableName="customer_payment">
+            <column name="id" type="BIGINT">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="customer_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="subscription_id" type="BIGINT"/>
+            <column name="amount" type="NUMERIC(12,2)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="currency" type="VARCHAR(10)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="payment_status" type="VARCHAR(30)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="payment_method" type="VARCHAR(80)"/>
+            <column name="payment_reference" type="VARCHAR(160)"/>
+            <column name="payment_date" type="TIMESTAMP"/>
+            <column name="recorded_by" type="VARCHAR(100)"/>
+            <column name="notes" type="VARCHAR(1000)"/>
+            <column name="created_at" type="TIMESTAMP" defaultValueComputed="CURRENT_TIMESTAMP"/>
+        </createTable>
+        <addForeignKeyConstraint baseTableSchemaName="arena"
+                                 baseTableName="customer_payment"
+                                 baseColumnNames="customer_id"
+                                 constraintName="fk_payment_customer"
+                                 referencedTableSchemaName="arena"
+                                 referencedTableName="customer"
+                                 referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableSchemaName="arena"
+                                 baseTableName="customer_payment"
+                                 baseColumnNames="subscription_id"
+                                 constraintName="fk_payment_subscription"
+                                 referencedTableSchemaName="arena"
+                                 referencedTableName="customer_subscription"
+                                 referencedColumnNames="id"/>
+        <createIndex schemaName="arena" tableName="customer_payment" indexName="idx_payment_customer">
+            <column name="customer_id"/>
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="r1-9-create-access-override" author="codex">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <tableExists schemaName="arena" tableName="access_override"/>
+            </not>
+        </preConditions>
+        <createSequence schemaName="arena" sequenceName="seq_access_override" startValue="1"/>
+        <createTable schemaName="arena" tableName="access_override">
+            <column name="id" type="BIGINT">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="customer_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="subscription_id" type="BIGINT"/>
+            <column name="override_type" type="VARCHAR(40)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="status" type="VARCHAR(30)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="starts_at" type="TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="ends_at" type="TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="reason" type="VARCHAR(500)"/>
+            <column name="created_by" type="VARCHAR(100)"/>
+            <column name="created_at" type="TIMESTAMP" defaultValueComputed="CURRENT_TIMESTAMP"/>
+            <column name="revoked_at" type="TIMESTAMP"/>
+            <column name="revoked_by" type="VARCHAR(100)"/>
+            <column name="revocation_reason" type="VARCHAR(500)"/>
+            <column name="updated_at" type="TIMESTAMP" defaultValueComputed="CURRENT_TIMESTAMP"/>
+        </createTable>
+        <addForeignKeyConstraint baseTableSchemaName="arena"
+                                 baseTableName="access_override"
+                                 baseColumnNames="customer_id"
+                                 constraintName="fk_access_override_customer"
+                                 referencedTableSchemaName="arena"
+                                 referencedTableName="customer"
+                                 referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableSchemaName="arena"
+                                 baseTableName="access_override"
+                                 baseColumnNames="subscription_id"
+                                 constraintName="fk_access_override_subscription"
+                                 referencedTableSchemaName="arena"
+                                 referencedTableName="customer_subscription"
+                                 referencedColumnNames="id"/>
+        <createIndex schemaName="arena" tableName="access_override" indexName="idx_access_override_active">
+            <column name="customer_id"/>
+            <column name="status"/>
+            <column name="ends_at"/>
+        </createIndex>
+        <createIndex schemaName="arena" tableName="access_override" indexName="idx_access_override_expiry">
+            <column name="status"/>
+            <column name="ends_at"/>
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="r1-9-create-audit-event" author="codex">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <tableExists schemaName="arena" tableName="audit_event"/>
+            </not>
+        </preConditions>
+        <createSequence schemaName="arena" sequenceName="seq_audit_event" startValue="1"/>
+        <createTable schemaName="arena" tableName="audit_event">
+            <column name="id" type="BIGINT">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="event_type" type="VARCHAR(80)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="customer_id" type="BIGINT"/>
+            <column name="actor_type" type="VARCHAR(30)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="actor_id" type="VARCHAR(120)"/>
+            <column name="occurred_at" type="TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="previous_state" type="VARCHAR(1200)"/>
+            <column name="new_state" type="VARCHAR(1200)"/>
+            <column name="reason" type="VARCHAR(500)"/>
+            <column name="metadata" type="VARCHAR(2000)"/>
+        </createTable>
+        <createIndex schemaName="arena" tableName="audit_event" indexName="idx_audit_customer_time">
+            <column name="customer_id"/>
+            <column name="occurred_at"/>
+        </createIndex>
+    </changeSet>
+
+</databaseChangeLog>

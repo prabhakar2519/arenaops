@@ -1,0 +1,125 @@
+<header class="main-header">
+    <div class="logo-container" [routerLink]="homeTarget">
+        <div class="logo-icon">{{ logoIcon }}</div>
+        <span class="logo-text">{{ isPublicBookingPage ? 'ARENAOPS' : ((auth.parlourName$ | async) || 'ARENAOPS') }}</span>
+    </div>
+
+    <nav class="nav-bar" *ngIf="!isPublicBookingPage">
+        <a *ngIf="!(auth.currentUser$ | async)" routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{exact: true}" class="nav-link">
+            <span class="link-icon">Home</span>
+            <span class="link-text">Home</span>
+            <div class="underline"></div>
+        </a>
+
+        <ng-container *ngIf="!(auth.currentUser$ | async)">
+            <a routerLink="/register" routerLinkActive="active" class="nav-link">
+                <span class="link-icon">Join</span>
+                <span class="link-text">Register</span>
+                <div class="underline"></div>
+            </a>
+        </ng-container>
+
+        <ng-container *ngIf="auth.currentUser$ | async as user">
+            <a *ngIf="auth.hasRole('ADMIN')" routerLink="/admin" routerLinkActive="active" class="nav-link">
+                <span class="link-icon">Admin</span>
+                <span class="link-text">Admin</span>
+                <div class="underline"></div>
+            </a>
+
+            <button *ngFor="let sport of sports"
+                type="button"
+                class="nav-link sport-link"
+                [class.active]="isSportActive(sport)"
+                (click)="navigateToSport(sport)">
+                <span class="link-icon">{{ sport === 'BADMINTON' ? 'Court' : 'Play' }}</span>
+                <span class="link-text">{{ sportLabel(sport) }}</span>
+                <div class="underline"></div>
+            </button>
+            <a *ngIf="!isStaffUser && !auth.hasRole('ADMIN')" routerLink="/session-history" routerLinkActive="active" class="nav-link">
+                <span class="link-icon">Logs</span>
+                <span class="link-text">History</span>
+                <div class="underline"></div>
+            </a>
+            <a *ngIf="!auth.hasRole('ADMIN')" routerLink="/academy-members" routerLinkActive="active" class="nav-link">
+                <span class="link-icon">Members</span>
+                <span class="link-text">Academy Members</span>
+                <div class="underline"></div>
+            </a>
+
+            <ng-container *ngIf="auth.hasRole('OWNER')">
+                <a *ngIf="auth.canRegisterAnotherSport" routerLink="/parlour-registration" routerLinkActive="active" class="nav-link">
+                    <span class="link-icon">Add</span>
+                    <span class="link-text">Add Sport</span>
+                    <div class="underline"></div>
+                </a>
+                <a routerLink="/manage-tables" routerLinkActive="active" class="nav-link">
+                    <span class="link-icon">Areas</span>
+                    <span class="link-text">Play Areas</span>
+                    <div class="underline"></div>
+                </a>
+                <a routerLink="/reports" routerLinkActive="active" class="nav-link">
+                    <span class="link-icon">Stats</span>
+                    <span class="link-text">Reports</span>
+                    <div class="underline"></div>
+                </a>
+                <a routerLink="/staff-register" routerLinkActive="active" class="nav-link">
+                    <span class="link-icon">Team</span>
+                    <span class="link-text">Staff Management</span>
+                    <div class="underline"></div>
+                </a>
+            </ng-container>
+            <a *ngIf="isStaffUser" routerLink="/staff-register" routerLinkActive="active" class="nav-link">
+                <span class="link-icon">Notes</span><span class="link-text">Team Notes</span><div class="underline"></div>
+            </a>
+        </ng-container>
+    </nav>
+
+    <div class="user-actions desktop-only" *ngIf="!isPublicBookingPage">
+        <button class="theme-toggle-btn" (click)="toggleTheme()"
+            [title]="themeService.theme() === 'dark-green' ? 'Switch to Light Mode' : 'Switch to Dark Mode'">
+            <span class="theme-icon">{{ themeService.theme() === 'dark-green' ? '☀️' : '🌙' }}</span>
+        </button>
+
+        <ng-container *ngIf="auth.currentUser$ | async as user; else loginDesktop">
+            <div *ngIf="bookingLink" class="booking-link-wrap">
+                <button class="btn-copy-link" type="button" (click)="toggleBookingLinkPanel()">
+                    Booking Link
+                </button>
+                <div *ngIf="showBookingLinkPanel" class="booking-link-panel">
+                    <input type="text" [value]="bookingLink" readonly>
+                    <button type="button" (click)="copyBookingLink()">{{ linkCopied ? 'Copied' : 'Copy' }}</button>
+                    <button type="button" (click)="openBookingLink()">Open</button>
+                </div>
+            </div>
+            <span class="user-greeting">Hi, {{ user.username || user.name || 'User' }}</span>
+            <button class="btn-logout" (click)="logout()">Logout</button>
+        </ng-container>
+        <ng-template #loginDesktop>
+            <button type="button" class="btn-logout" (click)="login()">Login</button>
+        </ng-template>
+    </div>
+
+    <div class="mobile-actions mobile-only" *ngIf="!isPublicBookingPage">
+        <button class="theme-toggle-btn" (click)="toggleTheme()"
+            [title]="themeService.theme() === 'dark-green' ? 'Switch to Light Mode' : 'Switch to Dark Mode'">
+            <span class="theme-icon">{{ themeService.theme() === 'dark-green' ? '☀️' : '🌙' }}</span>
+        </button>
+
+        <ng-container *ngIf="auth.currentUser$ | async; else loginMobile">
+            <div *ngIf="bookingLink" class="booking-link-wrap compact">
+                <button class="btn-copy-link compact" type="button" (click)="toggleBookingLinkPanel()">
+                    Link
+                </button>
+                <div *ngIf="showBookingLinkPanel" class="booking-link-panel compact">
+                    <input type="text" [value]="bookingLink" readonly>
+                    <button type="button" (click)="copyBookingLink()">{{ linkCopied ? 'Copied' : 'Copy' }}</button>
+                    <button type="button" (click)="openBookingLink()">Open</button>
+                </div>
+            </div>
+            <button class="btn-logout compact" (click)="logout()">Logout</button>
+        </ng-container>
+        <ng-template #loginMobile>
+            <button type="button" class="btn-logout compact" (click)="login()">Login</button>
+        </ng-template>
+    </div>
+</header>

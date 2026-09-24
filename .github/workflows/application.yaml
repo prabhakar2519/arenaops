@@ -1,0 +1,162 @@
+name: ArenaOps Application CI and Release
+
+on:
+  push:
+    branches:
+      - main
+      - "feature/**"
+      - "bugfix/**"
+      - "release/v*"
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: application-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/heads/release/v') }}
+
+jobs:
+  validate:
+    name: Build and test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+
+      - name: Test core
+        run: mvn --batch-mode -f arena-core/pom.xml clean verify
+
+      - name: Test login gateway
+        run: mvn --batch-mode -f arena-login/pom.xml clean verify
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: arena-ui/package-lock.json
+
+      - name: Build UI
+        working-directory: arena-ui
+        run: |
+          npm ci
+          npm run build
+
+      - name: Validate production Compose
+        env:
+          IMAGE_REPOSITORY: ghcr.io/example/arenaops
+          IMAGE_TAG: validation
+          ARENAOPS_APP_ENV_FILE: /tmp/arenaops-validation.env
+        run: |
+          touch "$ARENAOPS_APP_ENV_FILE"
+          docker compose -f deploy/docker-compose.prod.yaml config --quiet
+
+  publish:
+    name: Publish release images
+    needs: validate
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/heads/release/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      image_tag: ${{ steps.release.outputs.image_tag }}
+      image_repository: ${{ steps.release.outputs.image_repository }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Derive immutable release coordinates
+        id: release
+        shell: bash
+        run: |
+          set -euo pipefail
+          image_tag="${GITHUB_REF_NAME#release/}"
+          repository="ghcr.io/${GITHUB_REPOSITORY,,}"
+          [[ "$image_tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]
+          echo "image_tag=$image_tag" >> "$GITHUB_OUTPUT"
+          echo "image_repository=$repository" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push core
+        uses: docker/build-push-action@v6
+        with:
+          context: arena-core
+          push: true
+          tags: ${{ steps.release.outputs.image_repository }}/arena-core:${{ steps.release.outputs.image_tag }}
+
+      - name: Build and push login gateway
+        uses: docker/build-push-action@v6
+        with:
+          context: arena-login
+          push: true
+          tags: ${{ steps.release.outputs.image_repository }}/arena-login:${{ steps.release.outputs.image_tag }}
+
+      - name: Build and push UI
+        uses: docker/build-push-action@v6
+        with:
+          context: arena-ui
+          push: true
+          tags: ${{ steps.release.outputs.image_repository }}/arena-ui:${{ steps.release.outputs.image_tag }}
+
+  deploy-production:
+    name: Deploy production
+    needs: publish
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/heads/release/v')
+    runs-on: ubuntu-latest
+    environment: production
+    concurrency:
+      group: arenaops-production
+      cancel-in-progress: false
+    env:
+      IMAGE_TAG: ${{ needs.publish.outputs.image_tag }}
+      IMAGE_REPOSITORY: ${{ needs.publish.outputs.image_repository }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Copy application deployment files
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USERNAME }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          source: "deploy/docker-compose.prod.yaml,deploy/deploy-app.sh"
+          target: "/opt/arenaops/app"
+
+      - name: Deploy immutable release
+        uses: appleboy/ssh-action@v1.2.0
+        env:
+          IMAGE_TAG: ${{ env.IMAGE_TAG }}
+          IMAGE_REPOSITORY: ${{ env.IMAGE_REPOSITORY }}
+          GHCR_USERNAME: ${{ secrets.GHCR_USERNAME }}
+          GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USERNAME }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          envs: IMAGE_TAG,IMAGE_REPOSITORY,GHCR_USERNAME,GHCR_TOKEN
+          script: |
+            set -euo pipefail
+            test -n "$IMAGE_TAG"
+            test -n "$IMAGE_REPOSITORY"
+            test -f /opt/arenaops/config/app.env
+            echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USERNAME" --password-stdin
+            chmod +x /opt/arenaops/app/deploy/deploy-app.sh
+            /opt/arenaops/app/deploy/deploy-app.sh

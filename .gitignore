@@ -1,0 +1,16 @@
+.DS_Store
+.env
+.env.*
+!.env.example
+.infra-bootstrap-success
+target/
+node_modules/
+dist/
+.angular/
+*.log
+/arena-core/application-mail-local.yaml
+/arena-core/src/main/resources/application-mail-local.yaml
+/arenaops/
+
+.idea/
+**/.idea/

@@ -1,0 +1,155 @@
+:root {
+  /* Common variables */
+  --font-main: 'Outfit', sans-serif;
+  --font-logo: 'Playfair Display', serif;
+}
+
+/* Specific Theme Definitions */
+body.dark-green {
+  /* EXACT REVERSION TO PRODUCTION (MAIN BRANCH) */
+  --snooker-green: #1a8c4e;
+  --snooker-green-light: #2da862;
+  --snooker-green-dark: #0e4d2b;
+
+  --bg-primary: #0e4d2b;
+  --bg-secondary: #1a8c4e;
+
+  --bg-card: rgba(255, 255, 255, 0.05);
+  --bg-auth-card: rgba(0, 0, 0, 0.85);
+  --bg-card-hover: rgba(255, 255, 255, 0.1);
+  --bg-header: #1b1b1b;
+  --bg-pill: rgba(0, 0, 0, 0.6);
+  --bg-card-header: rgba(0, 0, 0, 0.3);
+  --bg-summary: rgba(0, 0, 0, 0.4);
+  --bg-modal: linear-gradient(145deg, #1a1a1a, #0d0d0d);
+  --bg-occupied: linear-gradient(145deg, rgba(239, 68, 68, 0.2), rgba(0, 0, 0, 0.8));
+
+  --text-main: #ffffff;
+  --text-muted: #e0e0e0;
+  --text-inverse: #1b1b1b;
+
+  --accent-primary: #ffd700;
+  --accent-primary-hover: #ffea70;
+  --accent-success: #4ade80;
+  --accent-danger: #ff4d4d;
+
+  --border-main: #2da862;
+  --border-light: rgba(255, 255, 255, 0.1);
+  --border-card: var(--snooker-green-light);
+
+  --glass-effect: blur(5px);
+  --shadow-main: 0 10px 15px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 4px 15px rgba(0, 0, 0, 0.3);
+  --calendar-icon-filter: invert(1);
+  --logo-filter: none;
+
+  /* Production Radial Gradient */
+  --bg-gradient: radial-gradient(circle at center top, #1a8c4e, #0e4d2b);
+}
+
+body.dark-green.badminton-page {
+  --bg-primary: #0e4d2b;
+  --bg-secondary: #1a8c4e;
+  --bg-card: rgba(255, 255, 255, 0.05);
+  --bg-card-hover: rgba(255, 255, 255, 0.1);
+  --bg-pill: rgba(0, 0, 0, 0.6);
+  --bg-card-header: rgba(0, 0, 0, 0.3);
+  --bg-summary: rgba(0, 0, 0, 0.4);
+  --bg-modal: linear-gradient(145deg, #1a1a1a, #0d0d0d);
+  --bg-occupied: linear-gradient(145deg, rgba(239, 68, 68, 0.2), rgba(0, 0, 0, 0.8));
+  --text-main: #ffffff;
+  --text-muted: #e0e0e0;
+  --text-inverse: #1b1b1b;
+  --accent-primary: #ffd700;
+  --accent-primary-hover: #ffea70;
+  --accent-success: #4ade80;
+  --accent-danger: #ff4d4d;
+  --border-main: #2da862;
+  --border-light: rgba(255, 255, 255, 0.1);
+  --border-card: #2da862;
+  --shadow-main: 0 10px 15px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 4px 15px rgba(0, 0, 0, 0.3);
+  --bg-gradient: radial-gradient(circle at center top, #1a8c4e, #0e4d2b);
+}
+
+body.light.badminton-page {
+  --bg-primary: #f8fafc;
+  --bg-secondary: #ffffff;
+  --border-main: #dbe7f3;
+  --border-card: #dbe7f3;
+  --bg-gradient: none;
+}
+
+body.light {
+  /* Premium Snooker Light Theme */
+  --bg-primary: #f8fafc;
+  --bg-secondary: #ffffff;
+
+  --bg-card: #ffffff;
+  --bg-auth-card: #ffffff;
+  --bg-card-hover: #f1f5f9;
+  --bg-header: #ffffff;
+  --bg-pill: #ffffff;
+  --bg-card-header: #f8fafc;
+  --bg-summary: #f1f5f9;
+  --bg-modal: #ffffff;
+  --bg-occupied: linear-gradient(145deg, rgba(239, 68, 68, 0.1), #ffffff);
+
+  --text-main: #0f172a;
+  --text-muted: #64748b;
+  --text-inverse: #ffffff;
+
+  --accent-primary: #1a8c4e;
+  /* Clean Snooker Green for buttons */
+  --accent-primary-hover: #2da862;
+  --accent-success: #16a34a;
+  --accent-danger: #dc2626;
+
+  --border-main: #e2e8f0;
+  --border-light: #cbd5e1;
+  --border-card: #e2e8f0;
+
+  --glass-effect: none;
+  --shadow-main: 0 4px 6px -1px rgb(0 0 0 / 0.05), 0 2px 4px -2px rgb(0 0 0 / 0.05);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.05);
+  --calendar-icon-filter: none;
+  --logo-filter: none;
+
+  --bg-gradient: none;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-main);
+  background: var(--bg-primary);
+  background-image: var(--bg-gradient);
+  background-attachment: fixed;
+  color: var(--text-main);
+  min-height: 100vh;
+  transition: background-color 0.3s ease;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-primary);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-main);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--accent-primary);
+}

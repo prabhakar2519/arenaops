@@ -1,0 +1,26 @@
+# Production has no secret defaults. Startup fails when a required value is absent.
+spring:
+  datasource:
+    url: jdbc:postgresql://${ARENA_DB_HOST}:5432/${ARENA_DB_NAME}
+    username: ${ARENA_DB_USERNAME}
+    password: ${ARENA_DB_PASSWORD}
+  mail:
+    host: ${BREVO_SMTP_HOST}
+    port: ${BREVO_SMTP_PORT:587}
+    username: ${BREVO_SMTP_USERNAME}
+    password: ${BREVO_SMTP_PASSWORD}
+
+keycloak-admin:
+  server-url: ${KEYCLOAK_SERVER_URL}
+  client-secret: ${KEYCLOAK_BFF_SECRET}
+
+app:
+  email:
+    enabled: ${ARENAOPS_MAIL_ENABLED:true}
+    from: ${ARENAOPS_MAIL_FROM}
+    frontend-url: ${ARENAOPS_FRONTEND_URL}
+
+logging:
+  level:
+    root: INFO
+    com.arena: INFO

@@ -1,0 +1,16 @@
+# Development-only overrides. Common settings remain in application.yaml.
+spring:
+  datasource:
+    url: jdbc:postgresql://${ARENA_DB_HOST:localhost}:5432/${ARENA_DB_NAME:arena}
+  mail:
+    username: ${BREVO_SMTP_USERNAME:}
+    password: ${BREVO_SMTP_PASSWORD:}
+
+app:
+  email:
+    enabled: ${ARENAOPS_MAIL_ENABLED:false}
+    frontend-url: ${ARENAOPS_FRONTEND_URL:http://localhost:4200}
+
+logging:
+  level:
+    com.arena: DEBUG

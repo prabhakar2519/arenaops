@@ -1,0 +1,68 @@
+<div class="registration-container">
+    <div class="registration-card">
+        <h1>Create Account</h1>
+        <p class="subtitle">Register as an owner using your one-time ArenaOps activation code</p>
+
+        <form [formGroup]="userForm" (ngSubmit)="onSubmit()">
+            <div class="form-group">
+                <label for="onboardingCode">Activation Code</label>
+                <input id="onboardingCode" type="text" formControlName="onboardingCode" placeholder="ARENA-XXXX-XXXX"
+                    [class.error]="userForm.get('onboardingCode')?.invalid && userForm.get('onboardingCode')?.touched">
+                <div class="error-message"
+                    *ngIf="userForm.get('onboardingCode')?.invalid && userForm.get('onboardingCode')?.touched">
+                    <span *ngIf="userForm.get('onboardingCode')?.errors?.['required']">Activation code is required</span>
+                    <span *ngIf="userForm.get('onboardingCode')?.errors?.['minlength']">Enter the full activation code shared by ArenaOps</span>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="username">Username</label>
+                <input id="username" type="text" formControlName="username" placeholder="Choose a username"
+                    [class.error]="userForm.get('username')?.invalid && userForm.get('username')?.touched">
+                <div class="error-message"
+                    *ngIf="userForm.get('username')?.invalid && userForm.get('username')?.touched">
+                    <span *ngIf="userForm.get('username')?.errors?.['required']">Username is required</span>
+                    <span *ngIf="userForm.get('username')?.errors?.['minlength']">Username must be at least 3
+                        characters</span>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="email">Email</label>
+                <input id="email" type="email" formControlName="email" placeholder="your.email@example.com"
+                    [class.error]="userForm.get('email')?.invalid && userForm.get('email')?.touched">
+                <div class="error-message" *ngIf="userForm.get('email')?.invalid && userForm.get('email')?.touched">
+                    <span *ngIf="userForm.get('email')?.errors?.['required']">Email is required</span>
+                    <span *ngIf="userForm.get('email')?.errors?.['email']">Please enter a valid email address</span>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input id="password" type="password" formControlName="password" placeholder="Create a password"
+                    [class.error]="userForm.get('password')?.invalid && userForm.get('password')?.touched">
+                <div class="error-message"
+                    *ngIf="userForm.get('password')?.invalid && userForm.get('password')?.touched">
+                    <span *ngIf="userForm.get('password')?.errors?.['required']">Password is required</span>
+                    <span *ngIf="userForm.get('password')?.errors?.['minlength']">Password must be at least 6
+                        characters</span>
+                </div>
+            </div>
+
+            <div class="message-container" *ngIf="submissionMessage">
+                <div class="message" [class.success]="isSuccess" [class.error]="!isSuccess">
+                    {{ submissionMessage }}
+                </div>
+            </div>
+
+            <button type="submit" class="btn-submit" [disabled]="isSubmitting">
+                <span *ngIf="!isSubmitting">Create Account</span>
+                <span *ngIf="isSubmitting">Creating Account...</span>
+            </button>
+
+            <div class="login-link">
+                Already have an account? <a routerLink="/login">Login here</a>
+            </div>
+        </form>
+    </div>
+</div>

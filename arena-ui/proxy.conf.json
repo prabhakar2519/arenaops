@@ -1,0 +1,17 @@
+{
+  "/api": {
+    "target": "http://localhost:7700",
+    "secure": false,
+    "changeOrigin": true
+  },
+  "/oauth2": {
+    "target": "http://localhost:7700",
+    "secure": false,
+    "changeOrigin": true
+  },
+  "/logout": {
+    "target": "http://localhost:7700",
+    "secure": false,
+    "changeOrigin": true
+  }
+}
