@@ -7,8 +7,12 @@
     <span class="admin-state" *ngIf="isLoading">Loading</span>
   </section>
 
-  <div class="message" *ngIf="message" [class.success]="isSuccess" [class.error]="!isSuccess">
+  <div class="message" *ngIf="message" role="status" [class.success]="severity === 'success'"
+    [class.warning]="severity === 'warning'" [class.error]="severity === 'error'">
     {{ message }}
+  </div>
+  <div *ngFor="let field of fieldErrors | keyvalue" class="field-error" role="alert">
+    {{ field.key }}: {{ field.value }}
   </div>
 
   <section class="metric-grid" *ngIf="dashboard">
@@ -45,7 +49,16 @@
 
       <label>
         Owner Email *
-        <input type="email" formControlName="ownerEmail" placeholder="owner@example.com" required>
+        <input type="email" formControlName="ownerEmail" placeholder="owner@example.com" required
+          aria-describedby="owner-email-feedback">
+        <span id="owner-email-feedback" aria-live="polite">
+          <small *ngIf="invitationForm.controls.ownerEmail.pending">Checking email...</small>
+          <small class="field-error" *ngIf="invitationForm.controls.ownerEmail.hasError('emailRegistered')">Email already registered</small>
+          <small class="field-error" *ngIf="invitationForm.controls.ownerEmail.hasError('emailCheckFailed')">
+            Could not check email.
+            <button type="button" (click)="invitationForm.controls.ownerEmail.updateValueAndValidity()">Retry</button>
+          </small>
+        </span>
       </label>
 
       <div class="form-row">
@@ -85,7 +98,7 @@
         <textarea formControlName="notes" placeholder="Billing or onboarding notes"></textarea>
       </label>
 
-      <button type="submit" [disabled]="invitationForm.invalid || isCreating">
+      <button type="submit" [disabled]="invitationForm.invalid || invitationForm.pending || isCreating">
         {{ isCreating ? 'Creating...' : 'Create Invitation' }}
       </button>
     </form>

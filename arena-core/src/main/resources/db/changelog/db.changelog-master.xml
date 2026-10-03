@@ -12,4 +12,6 @@
     <include file="db/changelog/releases/release-1.0.xml"/>
     <include file="db/changelog/releases/release-1.8.xml"/>
     <include file="db/changelog/releases/release-1.9.xml"/>
+    <include file="db/changelog/features/R1_9_saas_lifecycle/02-customer-email-unique.xml"/>
+    <include file="db/changelog/features/R1_9_saas_lifecycle/03-owner-billing.xml"/>
 </databaseChangeLog>

@@ -1,5 +1,7 @@
 # ArenaOps Keycloak Setup and Production Operations
 
+> Runtime-secret instructions below describe the previous VPS-file setup. For the updated application workflow and the pending separate infrastructure change, follow [GitHub Environment secrets and VPS deployment](github-environment-secrets.md). Do not create permanent application secret files.
+
 ## 1. Purpose
 
 This runbook explains how ArenaOps authentication was designed, how to create the Keycloak environment from an empty server, how the application uses it in production, and how to operate and troubleshoot it safely.

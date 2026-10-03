@@ -1,5 +1,7 @@
 package com.arena.core.service;
 
+import com.arena.core.exception.ArenaOpsException;
+import com.arena.core.exception.ErrorCode;
 import com.arena.core.entity.AppUserEntity;
 import com.arena.core.entity.AccessOverrideEntity;
 import com.arena.core.entity.CustomerEntity;
@@ -14,9 +16,7 @@ import com.arena.core.repository.CustomerRepository;
 import com.arena.core.repository.CustomerSubscriptionRepository;
 import java.time.LocalDateTime;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
-import org.springframework.web.server.ResponseStatusException;
 
 @Service
 @RequiredArgsConstructor
@@ -32,7 +32,7 @@ public class CustomerAccessService {
     }
 
     if (Boolean.FALSE.equals(user.getIsActive())) {
-      throw new ResponseStatusException(HttpStatus.FORBIDDEN, "User account is disabled");
+      throw new ArenaOpsException(ErrorCode.USER_DISABLED);
     }
 
     if (user.getCustomerId() == null) {
@@ -40,28 +40,34 @@ public class CustomerAccessService {
     }
 
     CustomerEntity customer = customerRepository.findById(user.getCustomerId())
-        .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN, "Customer account is not active"));
+        .orElseThrow(() -> new ArenaOpsException(ErrorCode.CUSTOMER_ACCESS_BLOCKED));
     CustomerSubscriptionEntity subscription = subscriptionRepository.findFirstByCustomerIdOrderByCreatedAtDesc(customer.getId())
         .orElse(null);
     evaluateLifecycle(customer, subscription);
 
     if (customer.getAccessStatus() == AccessStatus.NOT_ALLOWED) {
-      throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Customer invitation has not been activated");
+      throw new ArenaOpsException(ErrorCode.CUSTOMER_ACCESS_BLOCKED);
     }
 
     if (customer.getAccessStatus() == AccessStatus.BLOCKED || Boolean.FALSE.equals(customer.getAccessAllowed())) {
-      throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Customer access is disabled. Please contact ArenaOps.");
+      if (customer.getCustomerStatus() == CustomerStatus.ACTIVE && subscription != null) {
+        if (subscription.getSubscriptionStatus() == SubscriptionStatus.PAYMENT_DUE) {
+          throw new ArenaOpsException(ErrorCode.PAYMENT_REQUIRED);
+        }
+        if (subscription.getSubscriptionStatus() == SubscriptionStatus.CANCELLED) {
+          throw new ArenaOpsException(ErrorCode.SUBSCRIPTION_ACCESS_BLOCKED);
+        }
+      }
+      throw new ArenaOpsException(ErrorCode.CUSTOMER_ACCESS_BLOCKED);
     }
 
     if (!hasCurrentEntitlement(customer, subscription)) {
-      String message = PaymentStatus.PAID.name().equalsIgnoreCase(customer.getPaymentStatus())
-          ? "Subscription expired. Please contact ArenaOps to renew."
-          : "Trial expired. Please contact ArenaOps to continue.";
-      throw new ResponseStatusException(HttpStatus.FORBIDDEN, message);
+      throw new ArenaOpsException(PaymentStatus.PAID.name().equalsIgnoreCase(customer.getPaymentStatus())
+          ? ErrorCode.SUBSCRIPTION_EXPIRED : ErrorCode.PAYMENT_REQUIRED);
     }
 
     if (customer.getCustomerStatus() == CustomerStatus.SUSPENDED || customer.getCustomerStatus() == CustomerStatus.INACTIVE) {
-      throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Customer account is not active");
+      throw new ArenaOpsException(ErrorCode.CUSTOMER_ACCESS_BLOCKED);
     }
   }
 

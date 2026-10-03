@@ -1,8 +1,8 @@
 <div class="login-container">
     <div class="login-card">
-        <h2>{{ accessDeniedMessage ? 'Sign In Required' : 'Redirecting to Sign In' }}</h2>
+        <h2>{{ accessDeniedMessage ? 'Unable to complete sign in' : 'Redirecting to Sign In' }}</h2>
         <p class="subtitle">
-            {{ accessDeniedMessage ? 'Choose another account or try again.' : 'Opening the secure login page...' }}
+            {{ accessDeniedMessage ? 'Please try again when the service is available.' : 'Checking availability and opening the secure login page...' }}
         </p>
 
         <div *ngIf="accessDeniedMessage" class="access-denied" role="alert">

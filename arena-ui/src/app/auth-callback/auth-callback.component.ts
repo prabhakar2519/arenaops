@@ -2,6 +2,7 @@ import { Component, OnInit, inject } from '@angular/core';
 import { Router, ActivatedRoute } from '@angular/router';
 import { AuthService } from '../services/auth';
 import { CommonModule } from '@angular/common';
+import { apiError, scrollToTopOnError } from '../api-error';
 
 @Component({
   selector: 'app-auth-callback',
@@ -10,10 +11,11 @@ import { CommonModule } from '@angular/common';
   template: `
     <div class="callback-container">
       <div class="callback-card">
-        <div class="spinner"></div>
-        <h2>Authenticating...</h2>
-        <p>Please wait while we complete your login.</p>
-        <p *ngIf="errorMessage" class="error">{{ errorMessage }}</p>
+        <div *ngIf="!errorMessage" class="spinner"></div>
+        <h2>{{ errorMessage ? 'Unable to complete sign in' : 'Authenticating...' }}</h2>
+        <p *ngIf="!errorMessage">Please wait while we complete your login.</p>
+        <p *ngIf="errorMessage" class="error" role="alert">{{ errorMessage }}</p>
+        <button *ngIf="errorMessage" type="button" (click)="retryLogin()">Try again</button>
       </div>
     </div>
   `,
@@ -75,7 +77,7 @@ export class AuthCallbackComponent implements OnInit {
 
   ngOnInit() {
     // Extract the authorization code from the URL query parameters
-    this.route.queryParams.subscribe(params => {
+    const params = this.route.snapshot.queryParams;
       const code = params['code'];
 
       if (code) {
@@ -89,11 +91,13 @@ export class AuthCallbackComponent implements OnInit {
           },
           error: (error) => {
             console.error('Token exchange failed', error);
+            if (this.handleUnavailable(error)) return;
             if (error.status === 403) {
               this.redirectAfterAccessDenied(error);
               return;
             }
             this.errorMessage = 'Authentication failed. Please try again.';
+            scrollToTopOnError();
             this.redirectToLogin();
           }
         });
@@ -107,23 +111,38 @@ export class AuthCallbackComponent implements OnInit {
           },
           error: (error) => {
             console.error('Session validation failed', error);
+            if (this.handleUnavailable(error)) return;
             if (error.status === 403) {
               this.redirectAfterAccessDenied(error);
               return;
             }
             this.errorMessage = 'Session expired. Please login again.';
+            scrollToTopOnError();
             this.redirectToLogin();
           }
         });
       }
-    });
+  }
+
+  retryLogin(): void {
+    // Authorization codes are single-use; restart login instead of replaying one.
+    void this.router.navigate(['/login'], { replaceUrl: true });
+  }
+
+  private handleUnavailable(error: any): boolean {
+    if (error?.status === 0 || error?.status >= 500 || error?.name === 'TimeoutError') {
+      this.errorMessage = 'ArenaOps is temporarily unavailable. Please try again shortly.';
+      scrollToTopOnError();
+      return true;
+    }
+    return false;
   }
 
   private handleNavigation(user: any) {
     this.authService.setParlours([]);
     this.authService.setParlourName('ARENAOPS');
     this.authService.setActiveSport('SNOOKER');
-    const target = user?.role === 'ADMIN' ? '/admin' : '/';
+    const target = user?.role === 'ADMIN' ? '/admin' : user?.role === 'OWNER' ? '/billing' : '/';
     this.router.navigate([target], { replaceUrl: true });
   }
 
@@ -138,6 +157,7 @@ export class AuthCallbackComponent implements OnInit {
     }
 
     this.errorMessage = 'Login succeeded, but the local workspace could not be loaded. Please check the core service and try again.';
+    scrollToTopOnError();
   }
 
   private redirectToLogin() {
@@ -147,14 +167,7 @@ export class AuthCallbackComponent implements OnInit {
   }
 
   private accessDeniedMessage(error: any): string {
-    const body = error?.error;
-    const reason = typeof body === 'string'
-      ? body
-      : body?.message || body?.error_description || body?.error;
-
-    return reason
-      ? `Access denied: ${reason}`
-      : 'This account does not currently have access to ArenaOps. Please contact an administrator.';
+    return apiError(error).description;
   }
 
   private redirectAfterAccessDenied(error: any): void {

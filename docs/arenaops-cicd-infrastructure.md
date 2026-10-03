@@ -1,5 +1,7 @@
 # ArenaOps CI/CD and Production Pipeline
 
+> Runtime-secret instructions below describe the previous VPS-file setup. For the updated application workflow and the pending separate infrastructure change, follow [GitHub Environment secrets and VPS deployment](github-environment-secrets.md). Do not create permanent application secret files.
+
 ## 1. Purpose
 
 This runbook describes the ArenaOps delivery pipeline from developer change through production deployment. It separates application releases from long-lived infrastructure so a routine release cannot restart or recreate PostgreSQL, Keycloak, Caddy, or VPS configuration.

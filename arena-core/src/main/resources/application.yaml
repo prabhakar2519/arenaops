@@ -7,7 +7,7 @@ spring:
   datasource:
     url: jdbc:postgresql://${ARENA_DB_HOST:localhost}:5432/${ARENA_DB_NAME:arena}
     username: ${ARENA_DB_USERNAME:arena}
-    password: ${ARENA_DB_PASSWORD:}
+    password: ${ARENA_DB_PASSWORD:arena}
   jpa:
     hibernate:
       ddl-auto: none
@@ -48,7 +48,7 @@ app:
   admin:
     usernames: ${APP_ADMIN_USERNAMES:arena_admin,arenaops_admin}
   email:
-    enabled: ${ARENAOPS_MAIL_ENABLED:false}
+    enabled: ${ARENAOPS_MAIL_ENABLED:true}
     from: ${ARENAOPS_MAIL_FROM:noreply@arenaops.in}
     from-name: ${ARENAOPS_MAIL_FROM_NAME:ArenaOps}
     reply-to: ${ARENAOPS_MAIL_REPLY_TO:}

@@ -1,5 +1,11 @@
 package com.arena.core.controller;
 
+import com.arena.core.exception.ArenaOpsException;
+import com.arena.core.exception.ErrorCode;
+
+import com.arena.core.model.CustomerEmailCheckRequest;
+import com.arena.core.validation.CustomerEmailValidator;
+import java.util.Map;
 import com.arena.core.model.AdminCustomerRequest;
 import com.arena.core.model.AdminCustomerResponse;
 import com.arena.core.model.AdminDashboardResponse;
@@ -22,7 +28,6 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.server.ResponseStatusException;
 
 @RestController
 @RequestMapping("/api/admin")
@@ -31,6 +36,15 @@ public class AdminCustomerController {
 
   private final AdminCustomerService adminCustomerService;
   private final AdminAuthorizationService adminAuthorizationService;
+  private final CustomerEmailValidator customerEmailValidator;
+
+  @PostMapping("/customers/email-check")
+  public ResponseEntity<Map<String, Boolean>> checkEmail(
+      @AuthenticationPrincipal Jwt jwt,
+      @Valid @RequestBody CustomerEmailCheckRequest request) {
+    assertAdmin(jwt);
+    return ResponseEntity.ok(Map.of("registered", customerEmailValidator.isRegistered(request.email())));
+  }
 
   @GetMapping("/dashboard")
   public ResponseEntity<AdminDashboardResponse> dashboard(@AuthenticationPrincipal Jwt jwt) {
@@ -132,7 +146,7 @@ public class AdminCustomerController {
 
   private void assertAdmin(Jwt jwt) {
     if (!adminAuthorizationService.isAdmin(jwt)) {
-      throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Admin role is required");
+      throw new ArenaOpsException(ErrorCode.ACCESS_DENIED);
     }
   }
 }

@@ -10,6 +10,7 @@ import lombok.Data;
 @Data
 @Builder
 public class AdminCustomerResponse {
+  private EmailDelivery emailDelivery;
   private Long id;
   private String organizationName;
   private String organizationType;

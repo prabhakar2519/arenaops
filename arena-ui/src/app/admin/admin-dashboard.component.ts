@@ -2,8 +2,13 @@ import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { Component, OnInit, inject } from '@angular/core';
 import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
+import { customerEmailValidator, trimmedEmailValidator } from './customer-email.validator';
+import { apiError, applyFieldErrors, scrollToTopOnError } from '../api-error';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { DestroyRef } from '@angular/core';
 
 interface AdminCustomer {
+  emailDelivery?: { status: 'SENT' | 'DISABLED' | 'FAILED'; errorCode?: string; description: string };
   id: number;
   organizationName: string;
   primaryContactName?: string;
@@ -49,6 +54,7 @@ interface AdminDashboard {
 export class AdminDashboardComponent implements OnInit {
   private http = inject(HttpClient);
   private fb = inject(FormBuilder);
+  private destroyRef = inject(DestroyRef);
 
   dashboard?: AdminDashboard;
   customers: AdminCustomer[] = [];
@@ -56,6 +62,8 @@ export class AdminDashboardComponent implements OnInit {
   isCreating = false;
   message = '';
   isSuccess = false;
+  severity: 'success' | 'warning' | 'error' = 'error';
+  fieldErrors: Record<string, string> = {};
   actionReason = '';
   graceEndsAt = '';
   paymentAmount = 0;
@@ -73,7 +81,7 @@ export class AdminDashboardComponent implements OnInit {
   invitationForm = this.fb.group({
     customerName: ['', [Validators.required, Validators.pattern(/\S/)]],
     ownerName: ['', [Validators.required, Validators.pattern(/\S/)]],
-    ownerEmail: ['', [Validators.required, Validators.email]],
+    ownerEmail: ['', [Validators.required, trimmedEmailValidator], [customerEmailValidator(this.http)]],
     ownerPhone: ['', [Validators.required, Validators.pattern(/\S/)]],
     customerPlan: ['SINGLE', Validators.required],
     trialDays: [7, [Validators.required, Validators.min(0)]],
@@ -84,17 +92,22 @@ export class AdminDashboardComponent implements OnInit {
   });
 
   ngOnInit(): void {
+    const email = this.invitationForm.controls.ownerEmail;
+    email.statusChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => {
+      if (email.hasError('emailRegistered') || email.hasError('emailCheckFailed')) scrollToTopOnError();
+    });
     this.loadAdminData();
   }
 
   createInvitation(): void {
-    if (this.invitationForm.invalid || this.isCreating) {
+    if (this.invitationForm.invalid || this.invitationForm.pending || this.isCreating) {
       this.invitationForm.markAllAsTouched();
       this.showMessage('Complete all mandatory invitation fields.', false);
       return;
     }
 
     const value = this.invitationForm.getRawValue();
+    this.fieldErrors = {};
     this.isCreating = true;
     this.http.post<AdminCustomer>('/api/admin/customers/invitations', {
       customerName: value.customerName?.trim(),
@@ -110,7 +123,7 @@ export class AdminDashboardComponent implements OnInit {
       notes: value.notes
     }).subscribe({
       next: customer => {
-        this.showMessage(`Invitation created. Activation code: ${customer.onboardingCode}`, true);
+        this.showInvitationOutcome(customer, false);
         this.isCreating = false;
         this.invitationForm.reset({
           customerPlan: 'SINGLE',
@@ -123,7 +136,11 @@ export class AdminDashboardComponent implements OnInit {
       },
       error: error => {
         this.isCreating = false;
-        this.showMessage(error.error?.message || 'Could not create invitation.', false);
+        this.fieldErrors = applyFieldErrors(this.invitationForm, error);
+        if (apiError(error).errorCode === 'CUSTOMER_ALREADY_EXISTS') {
+          this.invitationForm.controls.ownerEmail.setErrors({ emailRegistered: true });
+        }
+        this.showMessage(apiError(error).description, false);
       }
     });
   }
@@ -155,7 +172,7 @@ export class AdminDashboardComponent implements OnInit {
   resendInvitation(customer: AdminCustomer): void {
     this.http.post<AdminCustomer>(`/api/admin/customers/${customer.id}/invitations/resend`, {}).subscribe({
       next: updated => {
-        this.showMessage(`Invitation resent. New activation code: ${updated.onboardingCode}`, true);
+        this.showInvitationOutcome(updated, true);
         this.loadAdminData();
       },
       error: error => this.showMessage(error.error?.message || 'Could not resend invitation.', false)
@@ -241,7 +258,8 @@ export class AdminDashboardComponent implements OnInit {
   }
 
   canReactivate(customer: AdminCustomer): boolean {
-    return customer.customerStatus === 'INACTIVE' || customer.customerStatus === 'SUSPENDED';
+    return customer.customerStatus === 'INACTIVE' || customer.customerStatus === 'SUSPENDED'
+      || (customer.customerStatus === 'ACTIVE' && customer.subscriptionStatus === 'CANCELLED');
   }
 
   planLabel(customer: AdminCustomer): string {
@@ -259,7 +277,23 @@ export class AdminDashboardComponent implements OnInit {
   }
 
   private showMessage(message: string, success: boolean): void {
+    if (!success) scrollToTopOnError();
     this.message = message;
     this.isSuccess = success;
+    this.severity = success ? 'success' : 'error';
+  }
+
+  private showInvitationOutcome(customer: AdminCustomer, resend: boolean): void {
+    const sent = customer.emailDelivery?.status === 'SENT';
+    if (sent) {
+      this.showMessage('Invitation sent. Please check your email.', true);
+      return;
+    }
+    const prefix = resend ? 'Invitation prepared.' : 'Customer created successfully.';
+    const detail = customer.emailDelivery?.errorCode === 'EMAIL_DISABLED'
+        ? 'Invitation email was not sent because email delivery is currently disabled.'
+        : 'Invitation email was not sent. You can resend it when email delivery is available.';
+    this.showMessage(`${prefix} ${detail} Activation code: ${customer.onboardingCode || ''}`, false);
+    this.severity = 'warning';
   }
 }

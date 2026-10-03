@@ -25,15 +25,6 @@ public class AppUserController {
   public ResponseEntity<AppUserResponse> saveUser(@Valid @RequestBody AppUserRequest request) {
     log.info("[AppUserController] POST /api/users - username={}, email={}, role={}",
         request.getUsername(), request.getEmail(), request.getRole());
-    try {
-      AppUserResponse response = appUserService.save(request);
-      log.info("[AppUserController] POST /api/users SUCCESS - userId={}, username={}",
-          response.getId(), response.getUsername());
-      return ResponseEntity.status(HttpStatus.CREATED).body(response);
-    } catch (Exception e) {
-      log.error("[AppUserController] POST /api/users FAILED - username={}, error={}",
-          request.getUsername(), e.getMessage(), e);
-      throw e;
-    }
+    return ResponseEntity.status(HttpStatus.CREATED).body(appUserService.save(request));
   }
 }

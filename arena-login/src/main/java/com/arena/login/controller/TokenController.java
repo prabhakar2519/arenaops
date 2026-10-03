@@ -1,5 +1,7 @@
 package com.arena.login.controller;
 
+import com.arena.login.exception.*;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.arena.login.model.TokenRequest;
 import com.arena.login.model.TokenResponse;
 import com.arena.login.model.UserInfo;
@@ -15,6 +17,7 @@ import org.springframework.util.StreamUtils;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.client.ResourceAccessException;
 import org.springframework.beans.factory.annotation.Qualifier;
 
 import java.io.IOException;
@@ -31,6 +34,7 @@ public class TokenController {
 
     private final TokenService tokenService;
     private final RestTemplate restTemplate;
+    private final ObjectMapper errorMapper = new ObjectMapper();
 
     @Value("${arena.core.url:http://localhost:7701}")
     private String coreUrl;
@@ -43,7 +47,7 @@ public class TokenController {
 
     @PostMapping({ "/token", "/token/" })
     public ResponseEntity<?> validateToken(@Valid @RequestBody TokenRequest request,
-            HttpSession session) {
+            HttpSession session, HttpServletRequest servletRequest) {
         try {
             log.info("Validating token for authorization code");
 
@@ -61,27 +65,25 @@ public class TokenController {
             log.info("Stored tokens in session. Session ID: {}", session.getId());
 
             return ResponseEntity.ok(userInfo);
+        } catch (ArenaOpsException e) {
+            session.invalidate();
+            return ApiErrors.response(e.getErrorCode(), servletRequest);
         } catch (HttpStatusCodeException e) {
             session.invalidate();
-            log.warn("ArenaOps access denied during login: status={}, body={}",
-                    e.getStatusCode(), e.getResponseBodyAsString());
-            return ResponseEntity.status(e.getStatusCode())
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .body(e.getResponseBodyAsString());
-        } catch (Exception e) {
-            log.error("Token validation failed: {}", e.getMessage());
+            return downstreamError(e, servletRequest);
+        } catch (RuntimeException e) {
             session.invalidate();
-            return ResponseEntity.status(401).build();
+            throw e;
         }
     }
 
     @GetMapping({ "/user", "/user/" })
-    public ResponseEntity<?> getUserInfo(HttpSession session) {
+    public ResponseEntity<?> getUserInfo(HttpSession session, HttpServletRequest servletRequest) {
         try {
             String token = (String) session.getAttribute("ACCESS_TOKEN");
             if (token == null) {
                 log.warn("[SessionCheck] No ACCESS_TOKEN found in session: {}", session.getId());
-                return ResponseEntity.status(401).build();
+                return ApiErrors.response(ErrorCode.AUTHENTICATION_REQUIRED, servletRequest);
             }
 
             UserInfo userInfo = tokenService.getUserInfoFromToken(token);
@@ -97,16 +99,12 @@ public class TokenController {
             log.debug("[SessionCheck] Successfully retrieved user info for: {}", userInfo.getUsername());
 
             return ResponseEntity.ok(userInfo);
+        } catch (ArenaOpsException e) {
+            if (e.getErrorCode().getStatus() == 401) session.invalidate();
+            return ApiErrors.response(e.getErrorCode(), servletRequest);
         } catch (HttpStatusCodeException e) {
-            log.warn("[SessionCheck] ArenaOps access denied for session {}: status={}, body={}",
-                    session.getId(), e.getStatusCode(), e.getResponseBodyAsString());
-            session.invalidate();
-            return ResponseEntity.status(e.getStatusCode())
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .body(e.getResponseBodyAsString());
-        } catch (Exception e) {
-            log.error("[SessionCheck] Failed to get user info for session {}: {}", session.getId(), e.getMessage());
-            return ResponseEntity.status(401).build();
+            if (e.getStatusCode().value() == 401 || e.getStatusCode().value() == 403) session.invalidate();
+            return downstreamError(e, servletRequest);
         }
     }
 
@@ -117,7 +115,7 @@ public class TokenController {
             try {
                 postCorePresence(token, "/api/presence/logout");
             } catch (Exception e) {
-                log.warn("Could not mark user offline before logout: {}", e.getMessage());
+                log.warn("Could not mark user offline before logout type={}", e.getClass().getSimpleName());
             }
         }
         session.invalidate();
@@ -129,14 +127,35 @@ public class TokenController {
         return ResponseEntity.ok("OK");
     }
 
+    @GetMapping("/readiness")
+    public ResponseEntity<?> readiness(HttpServletRequest request) {
+        try {
+            restTemplate.getForEntity(coreUrl + "/api/health", byte[].class);
+            return ResponseEntity.ok(java.util.Map.of("status", "UP"));
+        } catch (org.springframework.web.client.RestClientException e) {
+            return ApiErrors.response(ErrorCode.SERVICE_UNAVAILABLE, request);
+        }
+    }
+
     private void validateCoreAccess(String accessToken) {
         HttpHeaders headers = new HttpHeaders();
         headers.setBearerAuth(accessToken);
-        restTemplate.exchange(
+        String correlationId = org.slf4j.MDC.get("correlationId");
+        if (correlationId != null) headers.set(CorrelationIdFilter.HEADER, correlationId);
+        try {
+            restTemplate.exchange(
                 coreUrl + "/api/access/check",
                 HttpMethod.GET,
                 new HttpEntity<>(headers),
                 byte[].class);
+        } catch (ResourceAccessException e) {
+            throw new ArenaOpsException(ErrorCode.SERVICE_UNAVAILABLE);
+        } catch (HttpStatusCodeException e) {
+            if (e.getStatusCode().is5xxServerError()) {
+                throw new ArenaOpsException(ErrorCode.SERVICE_UNAVAILABLE);
+            }
+            throw e;
+        }
     }
 
     @RequestMapping("/**")
@@ -150,9 +169,10 @@ public class TokenController {
             checkPath = checkPath.substring(0, checkPath.length() - 1);
         }
 
-        if (checkPath.endsWith("/token") || checkPath.endsWith("/user") || checkPath.endsWith("/logout") || checkPath.endsWith("/health")
-                || checkPath.endsWith("/error")) {
-            return null; // Should not be hit due to priority
+        if (java.util.Set.of("/api/token", "/token", "/api/user", "/user", "/api/logout", "/logout",
+                "/api/health", "/health", "/api/readiness", "/readiness").contains(checkPath)) {
+            // Valid methods use the specific handlers; wildcard routing must not turn unsupported methods into 200.
+            return errorBytes(ErrorCode.METHOD_NOT_ALLOWED, request);
         }
 
         // Normalize path to ensure it starts with /api before proxying
@@ -174,7 +194,7 @@ public class TokenController {
         boolean isPublicApi = path.startsWith("/api/public/");
 
         if (accessToken == null && !isInitialRegistration && !isPublicApi) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+            return errorBytes(ErrorCode.AUTHENTICATION_REQUIRED, request);
         }
 
         if (accessToken != null) {
@@ -185,6 +205,7 @@ public class TokenController {
         java.util.Set<String> hopByHopHeaders = java.util.Set.of(
                 "host", "connection", "keep-alive", "proxy-authenticate",
                 "proxy-authorization", "te", "trailers", "transfer-encoding", "upgrade",
+                "cookie", "authorization", "x-correlation-id",
                 "content-length" // we will set this ourselves from the byte array
         );
 
@@ -196,6 +217,7 @@ public class TokenController {
                 headers.addAll(headerName, Collections.list(request.getHeaders(headerName)));
             }
         }
+        headers.set(CorrelationIdFilter.HEADER, CorrelationIdFilter.correlationId(request));
         if (accessToken != null) {
             headers.setBearerAuth(accessToken);
         }
@@ -238,12 +260,14 @@ public class TokenController {
                         log.info("[BFF Proxy] Retry successful. Status: {}", retryResponse.getStatusCode());
                         return buildCleanResponse(retryResponse.getStatusCode(), retryResponse.getHeaders(),
                                 retryResponse.getBody());
-                    } catch (Exception refreshEx) {
-                        log.error("[BFF Proxy] Token refresh failed for session {}: {}. Forcing logout.",
-                                session.getId(), refreshEx.getMessage());
-                        // Refresh token also expired — force re-login
-                        session.invalidate();
-                        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+                    } catch (HttpStatusCodeException retryError) {
+                        if (retryError.getStatusCode().value() == 401) session.invalidate();
+                        return downstreamErrorBytes(retryError, request);
+                    } catch (ArenaOpsException refreshError) {
+                        if (refreshError.getErrorCode().getStatus() == 401) session.invalidate();
+                        return errorBytes(refreshError.getErrorCode(), request);
+                    } catch (ResourceAccessException unavailable) {
+                        return errorBytes(ErrorCode.SERVICE_UNAVAILABLE, request);
                     }
                 } else {
                     log.error("[BFF Proxy] No refresh token found in session {}. Cannot recover from 401.",
@@ -251,18 +275,47 @@ public class TokenController {
                 }
             }
 
-            log.error("Proxy error from core: {} for path: {}. Body: {}", e.getStatusCode(), path,
-                    e.getResponseBodyAsString());
-            return buildCleanResponse(e.getStatusCode(), e.getResponseHeaders(), e.getResponseBodyAsByteArray());
-        } catch (Exception e) {
-            log.error("Proxy failure: {}", e.getMessage(), e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+            return downstreamErrorBytes(e, request);
+        } catch (ResourceAccessException unavailable) {
+            return errorBytes(ErrorCode.SERVICE_UNAVAILABLE, request);
         }
+    }
+
+    private ResponseEntity<ErrorResponse> downstreamError(HttpStatusCodeException exception, HttpServletRequest request) {
+        int status = exception.getStatusCode().value();
+        ErrorCode code = ErrorCode.forStatus(status);
+        java.util.Map<String, String> fields = null;
+        try {
+            var body = errorMapper.readTree(exception.getResponseBodyAsByteArray());
+            var recognized = ErrorCode.valueOf(body.path("errorCode").asText());
+            if (recognized.getStatus() == status) {
+                code = recognized;
+                if (code == ErrorCode.VALIDATION_FAILED && body.path("fieldErrors").isObject()) {
+                    fields = errorMapper.convertValue(body.path("fieldErrors"),
+                            new com.fasterxml.jackson.core.type.TypeReference<java.util.Map<String, String>>() {});
+                }
+            }
+        } catch (Exception ignored) {
+            // Legacy/unstructured upstream errors get safe status-based descriptions.
+        }
+        return ResponseEntity.status(status).header(CorrelationIdFilter.HEADER, CorrelationIdFilter.correlationId(request))
+                .body(ApiErrors.body(code, status, request, fields));
+    }
+
+    private ResponseEntity<byte[]> downstreamErrorBytes(HttpStatusCodeException exception, HttpServletRequest request) throws IOException {
+        var response = downstreamError(exception, request);
+        return ResponseEntity.status(response.getStatusCode()).contentType(MediaType.APPLICATION_JSON)
+                .body(errorMapper.writeValueAsBytes(response.getBody()));
+    }
+
+    private ResponseEntity<byte[]> errorBytes(ErrorCode code, HttpServletRequest request) throws IOException {
+        return ResponseEntity.status(code.getStatus()).contentType(MediaType.APPLICATION_JSON)
+                .body(errorMapper.writeValueAsBytes(ApiErrors.body(code, code.getStatus(), request, null)));
     }
 
     private String refreshSessionToken(HttpSession session) {
         String refreshToken = (String) session.getAttribute("REFRESH_TOKEN");
-        if (refreshToken == null) throw new IllegalStateException("No refresh token available");
+        if (refreshToken == null) throw new ArenaOpsException(ErrorCode.AUTHENTICATION_REQUIRED);
         TokenResponse refreshed = tokenService.refreshToken(refreshToken);
         session.setAttribute("ACCESS_TOKEN", refreshed.getAccessToken());
         if (refreshed.getRefreshToken() != null) session.setAttribute("REFRESH_TOKEN", refreshed.getRefreshToken());
@@ -277,13 +330,15 @@ public class TokenController {
             postCorePresence(accessToken, "/api/presence/heartbeat");
             session.setAttribute("LAST_PRESENCE_TOUCH", now);
         } catch (Exception e) {
-            log.debug("Presence heartbeat failed: {}", e.getMessage());
+            log.debug("Presence heartbeat failed type={}", e.getClass().getSimpleName());
         }
     }
 
     private void postCorePresence(String accessToken, String path) {
         HttpHeaders headers = new HttpHeaders();
         headers.setBearerAuth(accessToken);
+        String correlationId = org.slf4j.MDC.get("correlationId");
+        if (correlationId != null) headers.set(CorrelationIdFilter.HEADER, correlationId);
         restTemplate.exchange(coreUrl + path, HttpMethod.POST, new HttpEntity<>(headers), Void.class);
     }
 

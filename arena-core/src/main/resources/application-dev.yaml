@@ -8,8 +8,12 @@ spring:
 
 app:
   email:
-    enabled: ${ARENAOPS_MAIL_ENABLED:false}
-    frontend-url: ${ARENAOPS_FRONTEND_URL:http://localhost:4200}
+    enabled: ${ARENAOPS_MAIL_ENABLED:true}
+    from: ${ARENAOPS_MAIL_FROM:noreply@arenaops.in}
+    from-name: ${ARENAOPS_MAIL_FROM_NAME:ArenaOps}
+    reply-to: ${ARENAOPS_MAIL_REPLY_TO:}
+    frontend-url: ${ARENAOPS_FRONTEND_URL:${APP_BASE_URL:http://192.168.0.219:4200}}
+
 
 logging:
   level:

@@ -1,5 +1,8 @@
 package com.arena.core.config;
 
+import com.arena.core.exception.ErrorCode;
+import com.arena.core.exception.ApiErrors;
+
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -19,9 +22,11 @@ public class SecurityConfig {
     private String jwkSetUri;
 
     private final CustomerAccessFilter customerAccessFilter;
+    private final ApiErrors apiErrors;
 
-    public SecurityConfig(CustomerAccessFilter customerAccessFilter) {
+    public SecurityConfig(CustomerAccessFilter customerAccessFilter, ApiErrors apiErrors) {
         this.customerAccessFilter = customerAccessFilter;
+        this.apiErrors = apiErrors;
     }
 
     @Bean
@@ -41,9 +46,25 @@ public class SecurityConfig {
                         // Catch-all
                         .anyRequest().authenticated())
                 .oauth2ResourceServer(oauth2 -> oauth2
-                        .jwt(jwt -> jwt.decoder(jwtDecoder())))
+                        .jwt(jwt -> jwt.decoder(jwtDecoder()))
+                        .authenticationEntryPoint((request, response, ex) -> apiErrors.write(request, response,
+                                ErrorCode.AUTHENTICATION_REQUIRED))
+                        .accessDeniedHandler((request, response, ex) -> apiErrors.write(request, response,
+                                ErrorCode.ACCESS_DENIED)))
+                .exceptionHandling(errors -> errors
+                        .authenticationEntryPoint((request, response, ex) -> apiErrors.write(request, response,
+                                ErrorCode.AUTHENTICATION_REQUIRED))
+                        .accessDeniedHandler((request, response, ex) -> apiErrors.write(request, response,
+                                ErrorCode.ACCESS_DENIED)))
                 .addFilterAfter(customerAccessFilter, BearerTokenAuthenticationFilter.class);
         return http.build();
+    }
+
+    @Bean
+    public org.springframework.boot.web.servlet.FilterRegistrationBean<CustomerAccessFilter> customerAccessRegistration() {
+        var registration = new org.springframework.boot.web.servlet.FilterRegistrationBean<>(customerAccessFilter);
+        registration.setEnabled(false);
+        return registration;
     }
 
     @Bean

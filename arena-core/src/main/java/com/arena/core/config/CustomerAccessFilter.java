@@ -1,5 +1,10 @@
 package com.arena.core.config;
 
+import com.arena.core.exception.ArenaOpsException;
+import com.arena.core.exception.ErrorCode;
+import com.arena.core.exception.ApiErrors;
+import com.arena.core.exception.CorrelationIdFilter;
+
 import com.arena.core.entity.AppUserEntity;
 import com.arena.core.repository.AppUserRepository;
 import com.arena.core.service.AdminAuthorizationService;
@@ -24,6 +29,7 @@ public class CustomerAccessFilter extends OncePerRequestFilter {
   private final AppUserRepository appUserRepository;
   private final CustomerAccessService customerAccessService;
   private final AdminAuthorizationService adminAuthorizationService;
+  private final ApiErrors apiErrors;
 
   @Override
   protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
@@ -44,16 +50,23 @@ public class CustomerAccessFilter extends OncePerRequestFilter {
 
       String username = adminAuthorizationService.resolveUsername(jwt);
 
-      AppUserEntity user = appUserRepository.findByUsername(username).orElse(null);
-      if (user == null) {
-        response.sendError(HttpServletResponse.SC_FORBIDDEN, "User is not registered in ArenaOps");
-        return;
-      }
-
       try {
+        AppUserEntity user = appUserRepository.findByUsername(username).orElse(null);
+        if (user == null) {
+          apiErrors.write(request, response, ErrorCode.CUSTOMER_ACCESS_BLOCKED);
+          return;
+        }
         customerAccessService.assertCustomerCanUseApp(user);
-      } catch (org.springframework.web.server.ResponseStatusException ex) {
-        response.sendError(ex.getStatusCode().value(), ex.getReason());
+      } catch (ArenaOpsException ex) {
+        apiErrors.write(request, response, ex.getErrorCode());
+        return;
+      } catch (RuntimeException ex) {
+        // Do not expose persistence/provider exception messages from a servlet filter.
+        org.slf4j.LoggerFactory.getLogger(CustomerAccessFilter.class).error(
+            "Access evaluation failed correlationId={} type={} frames={}",
+            CorrelationIdFilter.correlationId(request),
+            ex.getClass().getSimpleName(), java.util.Arrays.stream(ex.getStackTrace()).limit(25).toList());
+        apiErrors.write(request, response, ErrorCode.INTERNAL_SERVER_ERROR);
         return;
       }
     }
@@ -64,6 +77,9 @@ public class CustomerAccessFilter extends OncePerRequestFilter {
   private boolean shouldSkip(String path) {
     return !path.startsWith("/api/")
         || path.equals("/api/health")
+        || path.equals("/api/access/check")
+        || path.equals("/api/billing")
+        || path.startsWith("/api/billing/")
         || path.equals("/api/users")
         || path.startsWith("/api/admin/");
   }

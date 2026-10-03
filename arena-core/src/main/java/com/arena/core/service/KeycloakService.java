@@ -1,5 +1,7 @@
 package com.arena.core.service;
 
+import com.arena.core.exception.ArenaOpsException;
+import com.arena.core.exception.ErrorCode;
 import jakarta.annotation.PostConstruct;
 import jakarta.ws.rs.core.Response;
 import java.util.Collections;
@@ -43,6 +45,8 @@ public class KeycloakService {
 
         org.jboss.resteasy.client.jaxrs.ResteasyClient client = (org.jboss.resteasy.client.jaxrs.ResteasyClient) org.jboss.resteasy.client.jaxrs.ResteasyClientBuilder
                 .newBuilder()
+                .connectTimeout(5, java.util.concurrent.TimeUnit.SECONDS)
+                .readTimeout(10, java.util.concurrent.TimeUnit.SECONDS)
                 .build();
 
         try {
@@ -56,9 +60,7 @@ public class KeycloakService {
                     .build();
             log.info("[KeycloakService] Keycloak Admin Client initialized successfully");
         } catch (Exception e) {
-            log.error(
-                    "[KeycloakService] Failed to initialize Keycloak Admin Client. serverUrl={}, realm={}, clientId={}. Error: {}",
-                    serverUrl, realm, clientId, e.getMessage());
+            log.error("Identity client initialization failed type={}", e.getClass().getSimpleName());
             throw e;
         }
     }
@@ -84,28 +86,34 @@ public class KeycloakService {
         UsersResource usersResource = realmResource.users();
 
         log.info("[KeycloakService] Sending POST to Keycloak users API...");
-        Response response = usersResource.create(user);
-        int status = response.getStatus();
-        log.info("[KeycloakService] Keycloak create user response status: {}", status);
+        try (Response response = usersResource.create(user)) {
+            int status = response.getStatus();
+            log.info("[KeycloakService] Keycloak create user response status: {}", status);
 
-        if (status == 201) {
-            String userId = response.getLocation().getPath().replaceAll(".*/([^/]+)$", "$1");
-            log.info("[KeycloakService] User created in Keycloak with ID: {}", userId);
-            try {
-                assignRole(realmResource, userId, roleName);
-            } catch (Exception e) {
-                deleteUserById(userId);
-                throw e;
+            if (status == 201) {
+                String userId = response.getLocation().getPath().replaceAll(".*/([^/]+)$", "$1");
+                log.info("[KeycloakService] User created in Keycloak with ID: {}", userId);
+                try {
+                    assignRole(realmResource, userId, roleName);
+                } catch (Exception e) {
+                    deleteUserById(userId);
+                    throw e;
+                }
+                return userId;
+            } else if (status == 409) {
+                log.warn("[KeycloakService] User already exists in Keycloak: {}", username);
+                throw new ArenaOpsException(ErrorCode.USER_ALREADY_EXISTS);
+            } else {
+                log.warn("Identity creation rejected status={}", status);
+                throw new ArenaOpsException(status >= 500 ? ErrorCode.IDENTITY_PROVIDER_UNAVAILABLE : ErrorCode.IDENTITY_CREATION_FAILED);
             }
-            return userId;
-        } else if (status == 409) {
-            log.warn("[KeycloakService] User already exists in Keycloak: {}", username);
-            throw new RuntimeException("User already exists in Keycloak: " + username);
-        } else {
-            String errorBody = response.readEntity(String.class);
-            log.error("[KeycloakService] Failed to create user in Keycloak. Status: {}, Body: {}", status, errorBody);
-            throw new RuntimeException(
-                    "Failed to create user in Keycloak. Status: " + status + ", Error: " + errorBody);
+        } catch (ArenaOpsException e) {
+            throw e;
+        } catch (jakarta.ws.rs.ProcessingException e) {
+            throw new ArenaOpsException(ErrorCode.IDENTITY_PROVIDER_UNAVAILABLE);
+        } catch (RuntimeException e) {
+            log.warn("Identity creation failed type={}", e.getClass().getSimpleName());
+            throw new ArenaOpsException(ErrorCode.IDENTITY_CREATION_FAILED);
         }
     }
 
@@ -116,8 +124,7 @@ public class KeycloakService {
             realmResource.users().get(userId).roles().realmLevel().add(Collections.singletonList(role));
             log.info("[KeycloakService] Role '{}' assigned successfully to user id={}", roleName, userId);
         } catch (Exception e) {
-            log.error("[KeycloakService] Failed to assign role '{}' to user id={}: {}", roleName, userId,
-                    e.getMessage(), e);
+            log.warn("Identity role assignment failed userId={} type={}", userId, e.getClass().getSimpleName());
             throw e;
         }
     }
@@ -133,9 +140,21 @@ public class KeycloakService {
             log.info("[KeycloakService] User '{}' exists in Keycloak: {}", username, exists);
             return exists;
         } catch (Exception e) {
-            log.error("[KeycloakService] Error checking user existence in Keycloak for '{}': {}", username,
-                    e.getMessage(), e);
-            throw e;
+            logIdentityFailure("user lookup", e);
+            throw new ArenaOpsException(ErrorCode.IDENTITY_PROVIDER_UNAVAILABLE);
+        }
+    }
+
+    private void logIdentityFailure(String operation, Throwable failure) {
+        var seen = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<Throwable, Boolean>());
+        Throwable cause = failure;
+        while (cause != null && seen.size() < 10 && seen.add(cause)) {
+            Integer status = cause instanceof jakarta.ws.rs.WebApplicationException http
+                    && http.getResponse() != null ? http.getResponse().getStatus() : null;
+            // Never log exception messages: provider responses may contain credentials or tokens.
+            log.warn("Identity operation={} failed cause={} httpStatus={}", operation,
+                    cause.getClass().getSimpleName(), status);
+            cause = cause.getCause();
         }
     }
 
@@ -148,7 +167,7 @@ public class KeycloakService {
                 .filter(u -> username.equalsIgnoreCase(u.getUsername()))
                 .findFirst()
                 .map(UserRepresentation::getId)
-                .orElseThrow(() -> new RuntimeException("User not found in Keycloak: " + username));
+                .orElseThrow(() -> new ArenaOpsException(ErrorCode.RESOURCE_NOT_FOUND));
     }
 
     public void deleteUser(String username) {
@@ -160,8 +179,7 @@ public class KeycloakService {
             keycloak.realm(realm).users().get(userId).remove();
             log.warn("[KeycloakService] Rolled back Keycloak user id={}", userId);
         } catch (Exception cleanupError) {
-            log.error("[KeycloakService] Failed to roll back Keycloak user id={}: {}",
-                    userId, cleanupError.getMessage(), cleanupError);
+            log.error("Identity cleanup failed userId={} type={}", userId, cleanupError.getClass().getSimpleName());
         }
     }
 }

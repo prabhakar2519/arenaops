@@ -1,0 +1,2183 @@
+# ArenaOps — System Architecture & Customer Lifecycle
+
+	1. Purpose
+
+This document is the primary architecture and customer-lifecycle reference for **ArenaOps**.
+
+It explains:
+
+- what ArenaOps is;
+- how the major applications and infrastructure components interact;
+- how authentication and customer access work;
+- how customers are invited and registered;
+- when a trial starts and expires;
+- how payment, grace, suspension, cancellation, and reactivation work;
+- which database/domain states represent those conditions;
+- which APIs drive the lifecycle;
+- what is currently implemented;
+- known implementation limitations;
+- proposed improvements that are **not yet implemented**.
+
+This document should be updated whenever the ArenaOps architecture or customer lifecycle materially changes.
+
+---
+
+# 2. What is ArenaOps?
+
+ArenaOps is a **multi-tenant SaaS platform for sports businesses**, including:
+
+- sports academies;
+- snooker clubs;
+- badminton arenas;
+- and similar sports organizations.
+
+Each onboarded organization is represented as a **Customer**.
+
+Users belonging to one customer must only be able to access data and operations belonging to that customer.
+
+ArenaOps therefore separates three important concerns:
+
+1. **Identity** — Who is the user?
+2. **Authorization** — What is the user allowed to do?
+3. **Commercial entitlement** — Is the customer's subscription currently allowed to use ArenaOps?
+
+A successful login alone does **not** mean that the user has access to the application.
+
+---
+
+# 3. High-Level Architecture
+
+ArenaOps currently consists of the following major components:
+
+| Component | Technology | Responsibility |
+|---|---|---|
+| `arena-ui` | Angular | User interface, owner registration and admin dashboard |
+| `arena-login` | Spring Boot | Login/authentication gateway |
+| `arena-core` | Spring Boot | Main ArenaOps business APIs and customer lifecycle logic |
+| Keycloak | OIDC / Identity Provider | Authentication and identity management |
+| PostgreSQL | Relational database | ArenaOps application/business data |
+| Liquibase | DB migration tool | Database schema/version management |
+| Email abstraction | Provider-backed | Invitation/onboarding email delivery |
+| `arenaops-infrastructure` | Infrastructure repository | PostgreSQL, Keycloak, TLS termination and VPS setup |
+
+---
+
+# 4. Architecture Diagram
+
+```mermaid
+flowchart TB
+
+    USER[Owner / Staff / Coach]
+    ADMIN[ArenaOps Admin]
+
+    UI[Arena UI<br/>Angular]
+
+    LOGIN[Arena Login<br/>Spring Boot]
+
+    KC[Keycloak<br/>OIDC Identity Provider]
+
+    CORE[Arena Core<br/>Spring Boot Business API]
+
+    ACCESS[Customer Access<br/>Filter + Service]
+
+    DB[(PostgreSQL)]
+
+    EMAIL[Email Provider]
+
+    LIQUIBASE[Liquibase]
+
+    INFRA[ArenaOps Infrastructure<br/>VPS / PostgreSQL / Keycloak / TLS]
+
+    USER --> UI
+    ADMIN --> UI
+
+    UI --> LOGIN
+    LOGIN --> KC
+
+    UI --> CORE
+
+    CORE --> KC
+    CORE --> ACCESS
+    ACCESS --> DB
+
+    CORE --> DB
+    CORE --> EMAIL
+
+    LIQUIBASE --> DB
+
+    INFRA -. provisions/configures .-> KC
+    INFRA -. provisions/configures .-> DB
+```
+
+---
+
+# 5. Backend Architecture
+
+The normal backend structure is:
+
+```text
+HTTP Request
+      |
+      v
+Controller
+      |
+      v
+Business Service
+      |
+      v
+Repository
+      |
+      v
+PostgreSQL
+```
+
+Controllers should primarily handle HTTP concerns.
+
+Business rules belong in services.
+
+Repositories handle persistence/database interaction.
+
+The database provides durable storage and appropriate constraints.
+
+---
+
+# 6. Important Backend Components
+
+## AdminCustomerController
+
+Responsible for administrative customer lifecycle APIs.
+
+Examples include:
+
+- invitations;
+- grace periods;
+- payments;
+- cancellation;
+- suspension;
+- reactivation.
+
+Admin authorization must be enforced by the backend.
+
+---
+
+## AdminCustomerService
+
+Contains important lifecycle operations including:
+
+- invitation creation;
+- invitation management;
+- payment recording;
+- grace-period handling;
+- cancellation;
+- suspension;
+- reactivation.
+
+---
+
+## AppUserService
+
+Responsible for owner registration and identity creation.
+
+Its responsibilities include:
+
+- application user creation;
+- linking the user to the appropriate customer;
+- Keycloak user creation;
+- registration/activation processing.
+
+---
+
+## CustomerAccessFilter / CustomerAccessService
+
+Responsible for determining whether an authenticated customer user is currently entitled to use protected ArenaOps APIs.
+
+This is important because:
+
+> Authentication does not automatically mean application access.
+
+A user could have valid Keycloak credentials while their customer subscription is expired, cancelled, suspended, or otherwise blocked.
+
+---
+
+## SubscriptionLifecycleScheduler
+
+Performs lifecycle expiry processing.
+
+The current scheduled scan defaults to approximately:
+
+**Every 5 minutes**
+
+Current scheduled processing covers:
+
+- trial expiry;
+- grace expiry.
+
+Paid-period expiry does not currently have the same complete status-transition workflow. This is documented later as a known limitation.
+
+---
+
+## AuditService
+
+Maintains lifecycle history.
+
+Important lifecycle changes should retain evidence including:
+
+- actor;
+- previous state;
+- new state;
+- reason;
+- timestamp;
+- relevant lifecycle event.
+
+---
+
+# 7. Core Domain Model
+
+ArenaOps intentionally separates several concepts that might otherwise appear to be the same thing.
+
+They are **not interchangeable**.
+
+## 7.1 Customer
+
+Represents the sports organization using ArenaOps.
+
+Example:
+
+```text
+ABC Badminton Academy
+```
+
+Customer status represents the administrative standing of the organization.
+
+---
+
+## 7.2 Invitation
+
+A one-time onboarding credential allowing the invited owner to register.
+
+The invitation is **not a permanent software license**.
+
+Its purpose ends after successful onboarding.
+
+---
+
+## 7.3 Subscription
+
+Represents the customer's commercial entitlement.
+
+Examples:
+
+- trial;
+- active paid subscription;
+- payment due;
+- cancelled;
+- expired.
+
+---
+
+## 7.4 Payment
+
+Represents payment state and historical payment records.
+
+Payment is deliberately separate from subscription state.
+
+For example:
+
+```text
+Subscription = PAYMENT_DUE
+Payment = DUE
+```
+
+---
+
+## 7.5 Access
+
+Represents whether ArenaOps protected functionality should currently be accessible.
+
+A customer can therefore be:
+
+```text
+Customer = ACTIVE
+Subscription = PAYMENT_DUE
+Payment = DUE
+Access = BLOCKED
+```
+
+`ACTIVE` customer status alone does not mean access is permitted.
+
+---
+
+## 7.6 Grace
+
+A temporary access override while payment is still outstanding.
+
+Grace does **not** mean payment has been received.
+
+It also does not reset the customer's trial.
+
+---
+
+## 7.7 App User
+
+Represents an ArenaOps user linked to a customer.
+
+Authentication identity is also created/managed through Keycloak.
+
+---
+
+## 7.8 Audit Event
+
+Represents historical evidence of lifecycle changes.
+
+Examples:
+
+```text
+CUSTOMER_INVITED
+INVITATION_CONSUMED
+TRIAL_STARTED
+PAYMENT_RECORDED
+GRACE_GRANTED
+CUSTOMER_SUSPENDED
+CUSTOMER_CANCELLED
+```
+
+Exact event names should follow the implementation.
+
+---
+
+# 8. Database / Entity Model
+
+Important entities/tables include:
+
+| Entity | Table / Concept |
+|---|---|
+| `CustomerEntity` | `customer` |
+| `CustomerOnboardingCodeEntity` | `customer_onboarding_code` |
+| `CustomerSubscriptionEntity` | `customer_subscription` |
+| `CustomerPaymentEntity` | `customer_payment` |
+| `AccessOverrideEntity` | `access_override` |
+| `AppUserEntity` | Application users |
+| `AuditEventEntity` | `audit_event` |
+
+Conceptually:
+
+```mermaid
+erDiagram
+
+    CUSTOMER ||--o{ APP_USER : has
+    CUSTOMER ||--o{ ONBOARDING_CODE : receives
+    CUSTOMER ||--|| SUBSCRIPTION : has
+    CUSTOMER ||--o{ PAYMENT : makes
+    CUSTOMER ||--o{ ACCESS_OVERRIDE : receives
+    CUSTOMER ||--o{ AUDIT_EVENT : generates
+
+    CUSTOMER {
+        id customer_id
+        string status
+    }
+
+    SUBSCRIPTION {
+        id subscription_id
+        string status
+        datetime trial_start
+        datetime trial_end
+        datetime period_start
+        datetime period_end
+    }
+
+    ONBOARDING_CODE {
+        id invitation_id
+        string status
+        string hashed_code
+        datetime expires_at
+    }
+
+    PAYMENT {
+        id payment_id
+        string status
+        decimal amount
+        string currency
+        datetime payment_date
+    }
+
+    ACCESS_OVERRIDE {
+        id override_id
+        string status
+        datetime expires_at
+    }
+
+    APP_USER {
+        id user_id
+        id customer_id
+    }
+
+    AUDIT_EVENT {
+        id audit_id
+        string event
+        datetime created_at
+    }
+```
+
+This is a conceptual relationship diagram. It should not be interpreted as a complete representation of every physical column or constraint.
+
+---
+
+# 9. Defined Lifecycle States
+
+## Customer
+
+```text
+INVITED
+ACTIVE
+INACTIVE
+SUSPENDED
+```
+
+## Invitation
+
+```text
+CREATED
+SENT
+CONSUMED
+EXPIRED
+REVOKED
+```
+
+## Subscription
+
+```text
+NOT_STARTED
+TRIAL
+ACTIVE
+PAYMENT_DUE
+CANCELLED
+EXPIRED
+```
+
+## Payment
+
+```text
+NOT_DUE
+DUE
+PAID
+FAILED
+```
+
+## Access
+
+```text
+NOT_ALLOWED
+ALLOWED
+RESTRICTED
+BLOCKED
+```
+
+## Access Override
+
+```text
+ACTIVE
+EXPIRED
+REVOKED
+```
+
+Important:
+
+> The existence of an enum value does not prove that a complete workflow currently exists for that state.
+
+---
+
+# 10. Customer Lifecycle — Complete Picture
+
+At the highest level:
+
+```mermaid
+flowchart LR
+
+    INVITE[Admin Invites Customer]
+    REGISTER[Owner Registers]
+    TRIAL[Trial]
+    DUE[Payment Due]
+    GRACE[Grace Period]
+    PAID[Paid Subscription]
+    BLOCKED[Access Blocked]
+    SUSPENDED[Suspended]
+    CANCELLED[Cancelled]
+
+    INVITE --> REGISTER
+    REGISTER --> TRIAL
+
+    TRIAL -->|Payment| PAID
+    TRIAL -->|Trial expires| DUE
+
+    DUE -->|Grace granted| GRACE
+    DUE -->|No grace/payment| BLOCKED
+    DUE -->|Payment| PAID
+
+    GRACE -->|Payment| PAID
+    GRACE -->|Grace expires| BLOCKED
+
+    PAID -->|Admin suspends| SUSPENDED
+    PAID -->|Admin cancels| CANCELLED
+
+    SUSPENDED -->|Reactivate + valid entitlement| PAID
+
+    CANCELLED -.->|Proposed recovery| DUE
+```
+
+The dotted cancellation recovery transition is **proposed behavior**, not verified current behavior.
+
+---
+
+# 11. Stage 1 — Admin Invites Customer
+
+An ArenaOps administrator begins customer onboarding.
+
+The admin provides information such as:
+
+- organization/contact details;
+- plan;
+- trial duration;
+- monthly/yearly billing settings;
+- amount;
+- currency;
+- invitation expiry.
+
+ArenaOps creates:
+
+| State | Value |
+|---|---|
+| Customer | `INVITED` |
+| Subscription | `NOT_STARTED` |
+| Payment | `NOT_DUE` |
+| Access | `NOT_ALLOWED` |
+| Invitation | `CREATED` → `SENT` when email transport accepts it |
+
+A random activation/onboarding code is generated.
+
+The code is:
+
+- stored hashed;
+- associated with the invited email;
+- intended for one-time onboarding.
+
+The plaintext value is available for delivery/admin sharing.
+
+### Important
+
+**The trial does NOT start when the invitation is generated.**
+
+Creating an invitation does not consume the customer's trial time.
+
+If email delivery fails, the failure should be audited.
+
+Email failure does not start the trial.
+
+---
+
+# 12. Stage 2 — Invitation Validation
+
+Before registration is allowed, ArenaOps validates the invitation.
+
+Checks include:
+
+- does the code exist?
+- is the invitation expired?
+- has it already been consumed?
+- has it been revoked?
+- are uses remaining?
+- does the supplied normalized email match the invited email?
+
+Registration must fail for:
+
+```text
+Invalid code
+Expired code
+Revoked code
+Consumed code
+Wrong email
+```
+
+Consumed or revoked invitations cannot be resent.
+
+For an eligible invitation, resending generates a replacement code.
+
+### Current behavior
+
+A resent invitation currently receives approximately **7 days validity**.
+
+The previous code is replaced.
+
+---
+
+# 13. Stage 3 — Owner Registration
+
+Public registration currently supports an:
+
+```text
+OWNER
+```
+
+account.
+
+The owner submits registration details together with the invitation/activation code.
+
+ArenaOps checks duplicate usernames in:
+
+1. ArenaOps application database;
+2. Keycloak.
+
+The activation-code lookup uses database locking.
+
+Invitation consumption and ArenaOps database changes are performed transactionally.
+
+The registration process also creates the user's Keycloak identity.
+
+---
+
+# 14. Successful Activation
+
+After successful registration:
+
+| Domain | State |
+|---|---|
+| Invitation | `CONSUMED` |
+| Customer | `ACTIVE` |
+| Subscription | `TRIAL` |
+| Payment | `NOT_DUE` |
+| Access | `ALLOWED` |
+
+**This is when the trial starts.**
+
+Conceptually:
+
+```text
+Trial Start = Successful Activation Time
+
+Trial End =
+    Activation Time
+    +
+    Configured Trial Duration
+```
+
+Therefore:
+
+```text
+Invitation creation != Trial start
+
+Registration/activation = Trial start
+```
+
+---
+
+# 15. Registration Sequence
+
+```mermaid
+sequenceDiagram
+
+    actor Owner
+    participant UI as Arena UI
+    participant Core as Arena Core
+    participant DB as PostgreSQL
+    participant KC as Keycloak
+
+    Owner->>UI: Enter registration details + activation code
+
+    UI->>Core: Validate invitation
+
+    Core->>DB: Find invitation
+    Core->>DB: Validate status / expiry / email / usage
+
+    DB-->>Core: Invitation valid
+    Core-->>UI: Validation successful
+
+    Owner->>UI: Submit registration
+
+    UI->>Core: Activate owner account
+
+    Core->>DB: Lock/revalidate invitation
+    Core->>DB: Check application username
+
+    Core->>KC: Check/Create Keycloak identity
+
+    Core->>DB: Create App User
+    Core->>DB: Mark invitation CONSUMED
+    Core->>DB: Customer -> ACTIVE
+    Core->>DB: Subscription -> TRIAL
+    Core->>DB: Payment -> NOT_DUE
+    Core->>DB: Access -> ALLOWED
+
+    Core-->>UI: Registration successful
+```
+
+---
+
+# 16. Important Keycloak Transaction Limitation
+
+The database operations can participate in a database transaction.
+
+Keycloak is an **external system**.
+
+Therefore:
+
+```text
+PostgreSQL transaction
+        !=
+PostgreSQL + Keycloak distributed transaction
+```
+
+A database transaction cannot automatically roll back an already completed external Keycloak operation.
+
+Example partial failure:
+
+```text
+1. Keycloak user created successfully
+2. Database operation subsequently fails
+```
+
+This can potentially leave a Keycloak identity without the expected corresponding application state.
+
+Recovery/compensation for such partial failures must therefore be considered explicitly.
+
+ArenaOps should not be described as supporting distributed transactions unless such support is actually implemented.
+
+---
+
+# 17. Stage 4 — Trial Usage
+
+During a valid trial:
+
+```text
+Customer = ACTIVE
+Subscription = TRIAL
+Payment = NOT_DUE
+Access = ALLOWED
+```
+
+An authenticated customer user can access protected ArenaOps functionality when the remaining customer/user restrictions also permit access.
+
+Backend enforcement is authoritative.
+
+Hiding UI buttons is useful for UX but is **not security**.
+
+---
+
+# 18. How Access Should Be Understood
+
+Conceptually, a protected request requires several independent conditions:
+
+```mermaid
+flowchart TD
+
+    REQUEST[Protected API Request]
+
+    AUTH{Authenticated?}
+    USER{User allowed?}
+    CUSTOMER{Customer allowed?}
+    SUB{Valid subscription entitlement?}
+    RESTRICT{Administrative restriction?}
+    GRACE{Valid grace if payment due?}
+
+    ALLOW[ALLOW REQUEST]
+    DENY[DENY REQUEST]
+
+    REQUEST --> AUTH
+
+    AUTH -->|No| DENY
+    AUTH -->|Yes| USER
+
+    USER -->|No| DENY
+    USER -->|Yes| CUSTOMER
+
+    CUSTOMER -->|No| DENY
+    CUSTOMER -->|Yes| SUB
+
+    SUB -->|Valid| RESTRICT
+    SUB -->|Payment due| GRACE
+    SUB -->|Invalid| DENY
+
+    GRACE -->|Valid| RESTRICT
+    GRACE -->|Missing / expired| DENY
+
+    RESTRICT -->|Restricted| DENY
+    RESTRICT -->|Clear| ALLOW
+```
+
+The actual implementation should remain the source of truth for exact evaluation order.
+
+The important architectural principle is:
+
+> Login is only one part of the access decision.
+
+---
+
+# 19. Stage 5 — Trial Expiry Without Payment
+
+Suppose the customer finishes the trial without paying.
+
+The normal state becomes:
+
+| Domain | State |
+|---|---|
+| Customer | `ACTIVE` |
+| Subscription | `PAYMENT_DUE` |
+| Payment | `DUE` |
+| Access | `BLOCKED` |
+
+unless valid grace exists.
+
+Notice:
+
+```text
+Customer remains ACTIVE
+```
+
+The customer is still an ArenaOps customer.
+
+What has changed is their **commercial entitlement**.
+
+Therefore:
+
+```text
+ACTIVE Customer != Guaranteed Access
+```
+
+Trial expiry does **not** automatically cancel the subscription.
+
+Expiry is evaluated by:
+
+1. scheduled lifecycle processing;
+2. backend access evaluation.
+
+This prevents the scheduler interval alone from becoming an access-security boundary.
+
+---
+
+# 20. Stage 6 — Grace Period
+
+An admin can grant temporary grace for a customer whose subscription is:
+
+```text
+PAYMENT_DUE
+```
+
+The UI currently offers this operation for ACTIVE customers.
+
+An existing active override prevents another grace grant.
+
+During grace:
+
+| Domain | State |
+|---|---|
+| Customer | `ACTIVE` |
+| Subscription | `PAYMENT_DUE` |
+| Payment | `DUE` |
+| Access | `ALLOWED` |
+| Override | `ACTIVE` |
+
+This distinction is extremely important.
+
+Grace does **not** produce:
+
+```text
+Payment = PAID
+```
+
+and does not restart the trial.
+
+Instead it means:
+
+> Payment is still outstanding, but ArenaOps temporarily permits access until the grace deadline.
+
+---
+
+# 21. Stage 7 — Grace Expiry
+
+If the customer does not pay before grace expires:
+
+| Domain | State |
+|---|---|
+| Customer | `ACTIVE` |
+| Subscription | `PAYMENT_DUE` |
+| Payment | `DUE` |
+| Access | `BLOCKED` |
+| Override | `EXPIRED` |
+
+The customer remains registered.
+
+Their historical data remains.
+
+They simply lose protected application access until the commercial condition is resolved.
+
+---
+
+# 22. Stage 8 — Payment
+
+Currently, payment is **manually recorded by an ArenaOps admin**.
+
+This document does not assume an integrated payment gateway.
+
+The admin records information such as:
+
+- amount;
+- currency;
+- payment date;
+- payment method/reference;
+- notes.
+
+ArenaOps saves the payment record and updates the lifecycle.
+
+After successful payment:
+
+| Domain | State |
+|---|---|
+| Customer | `ACTIVE` |
+| Subscription | `ACTIVE` |
+| Payment | `PAID` |
+| Access | `ALLOWED` |
+
+Any active grace is revoked.
+
+The payment and subscription activation are audited.
+
+---
+
+# 23. Paid Subscription Period
+
+The current paid period begins from:
+
+```text
+Supplied payment date
+```
+
+or, when no payment date is supplied:
+
+```text
+Current time
+```
+
+For monthly billing:
+
+```text
+Period End = Period Start + 1 month
+```
+
+For yearly billing:
+
+```text
+Period End = Period Start + 1 year
+```
+
+The next billing date corresponds to the period end.
+
+---
+
+# 24. Important Renewal Limitation
+
+The current payment implementation starts a new period using the payment date.
+
+It does not necessarily extend an already-existing future subscription end date.
+
+Example:
+
+```text
+Existing subscription valid until:
+31 December
+
+Customer pays renewal early:
+15 December
+```
+
+A business decision is required regarding whether the next period should begin:
+
+```text
+15 December
+```
+
+or:
+
+```text
+1 January
+```
+
+This policy must be explicitly defined before changing the implementation.
+
+Other rules requiring explicit definition include:
+
+- early renewal;
+- duplicate payment submission;
+- idempotency;
+- overpayment;
+- underpayment;
+- failed payment;
+- payment correction/refund.
+
+---
+
+# 25. Paid Subscription Expiry — Current Limitation
+
+Backend entitlement checks deny access when a finite paid subscription period has ended.
+
+However, the current scheduler explicitly handles:
+
+```text
+Trial expiry
+Grace expiry
+```
+
+but does **not** currently implement a complete paid-subscription expiry state transition.
+
+This creates a possible situation where:
+
+```text
+Subscription status = ACTIVE
+```
+
+while:
+
+```text
+Period end < Current time
+```
+
+The backend entitlement evaluation can still deny access, but the displayed persisted status may remain `ACTIVE`.
+
+This is a **known implementation limitation**.
+
+Additionally:
+
+```text
+ACTIVE subscription + NULL period end
+```
+
+is currently treated as having no end date.
+
+This behavior should be reviewed before relying on indefinite subscriptions.
+
+---
+
+# 26. Stage 9 — Cancellation
+
+Cancellation is an explicit administrative action.
+
+After cancellation:
+
+| Domain | State |
+|---|---|
+| Customer | `INACTIVE` |
+| Subscription | `CANCELLED` |
+| Payment | `NOT_DUE` |
+| Access | `BLOCKED` |
+
+Cancellation also:
+
+- records cancellation timestamp/reason;
+- revokes active grace;
+- retains customer records.
+
+Cancellation is fundamentally different from trial expiry.
+
+### Trial expiry
+
+```text
+Customer still exists and owes payment.
+```
+
+### Cancellation
+
+```text
+Customer relationship/subscription has explicitly been cancelled.
+```
+
+ArenaOps does not delete the customer merely because the subscription is cancelled.
+
+---
+
+# 27. Stage 10 — Suspension
+
+Suspension is an administrative restriction.
+
+Example:
+
+```text
+Customer = SUSPENDED
+Subscription = ACTIVE
+Payment = PAID
+Access = BLOCKED
+```
+
+The subscription/payment may remain completely valid.
+
+This separation is intentional.
+
+It means:
+
+> Commercial entitlement exists, but ArenaOps administration has temporarily prevented access.
+
+Therefore suspension should not rewrite valid payment history simply to block access.
+
+---
+
+# 28. Reactivation After Suspension
+
+When a suspended customer is reactivated:
+
+```text
+Customer -> ACTIVE
+```
+
+Suspension/deactivation metadata is cleared.
+
+Access is then derived from the customer's actual existing entitlement.
+
+For example:
+
+```text
+Customer = SUSPENDED
+Subscription = ACTIVE
+Paid period still valid
+```
+
+After reactivation:
+
+```text
+Customer = ACTIVE
+Subscription = ACTIVE
+Access = ALLOWED
+```
+
+However, reactivation must not bypass an expired commercial entitlement.
+
+---
+
+# 29. Current Cancellation Reactivation Defect
+
+There is an important known issue in the current implementation.
+
+Current `Reactivate`:
+
+- changes Customer → `ACTIVE`;
+- clears suspension/deactivation metadata;
+- derives access from existing subscription/grace;
+- does **not** change a `CANCELLED` subscription.
+
+At the same time:
+
+- payment recording rejects `CANCELLED` subscriptions;
+- grace requires `PAYMENT_DUE`;
+- UI Reactivate is enabled only for `INACTIVE` or `SUSPENDED` customers.
+
+This produces the following problematic transition:
+
+```text
+BEFORE
+
+Customer     = INACTIVE
+Subscription = CANCELLED
+Access       = BLOCKED
+
+          |
+          | Reactivate
+          v
+
+AFTER
+
+Customer     = ACTIVE
+Subscription = CANCELLED
+Access       = BLOCKED
+```
+
+The customer therefore appears ACTIVE but still cannot use ArenaOps.
+
+Worse, the UI may no longer offer the same Reactivate operation because the customer is now ACTIVE.
+
+This is a **recovery defect**, not a successful reactivation flow.
+
+---
+
+# 30. Proposed Returning-Customer Recovery
+
+> **STATUS: PROPOSED — NOT CURRENTLY IMPLEMENTED**
+
+Cancellation recovery should distinguish two operations:
+
+### 1. Restore customer standing
+
+```text
+Customer:
+INACTIVE -> ACTIVE
+
+Subscription:
+CANCELLED -> PAYMENT_DUE
+
+Payment:
+NOT_DUE -> DUE
+
+Access:
+BLOCKED
+```
+
+The customer has returned but has not yet regained paid entitlement.
+
+### 2. Restore commercial entitlement
+
+The admin then chooses one of the legitimate entitlement paths.
+
+#### Payment
+
+```text
+Subscription -> ACTIVE
+Payment -> PAID
+Access -> ALLOWED
+```
+
+#### Temporary grace
+
+```text
+Subscription -> PAYMENT_DUE
+Payment -> DUE
+Override -> ACTIVE
+Access -> ALLOWED temporarily
+```
+
+This avoids automatically giving returning customers:
+
+- another free trial;
+- permanent free access;
+- fabricated payment status.
+
+Existing information should be preserved:
+
+- customer data;
+- original trial dates;
+- historical payments;
+- cancellation history;
+- audit history.
+
+---
+
+# 31. Proposed Corrected Lifecycle
+
+```mermaid
+stateDiagram-v2
+
+    [*] --> INVITED
+
+    INVITED --> TRIAL : Owner registration
+
+    TRIAL --> ACTIVE : Payment recorded
+    TRIAL --> PAYMENT_DUE : Trial expires
+
+    PAYMENT_DUE --> GRACE : Admin grants grace
+    PAYMENT_DUE --> ACTIVE : Payment recorded
+
+    GRACE --> PAYMENT_DUE : Grace expires
+    GRACE --> ACTIVE : Payment recorded
+
+    ACTIVE --> SUSPENDED : Admin suspends
+    SUSPENDED --> ACTIVE : Reactivate if entitlement valid
+
+    ACTIVE --> CANCELLED : Admin cancels
+
+    CANCELLED --> PAYMENT_DUE : Proposed reopen
+    PAYMENT_DUE --> ACTIVE : Payment recorded
+```
+
+The `CANCELLED → PAYMENT_DUE` transition is proposed and must not be described as currently implemented.
+
+---
+
+# 32. Lifecycle State Matrix
+
+| Scenario | Customer | Invitation | Subscription | Payment | Access | Grace |
+|---|---|---|---|---|---|---|
+| Invitation created | INVITED | CREATED/SENT | NOT_STARTED | NOT_DUE | NOT_ALLOWED | None |
+| Registration successful | ACTIVE | CONSUMED | TRIAL | NOT_DUE | ALLOWED | None |
+| Trial active | ACTIVE | CONSUMED | TRIAL | NOT_DUE | ALLOWED | None |
+| Trial expired | ACTIVE | CONSUMED | PAYMENT_DUE | DUE | BLOCKED | None |
+| Grace granted | ACTIVE | CONSUMED | PAYMENT_DUE | DUE | ALLOWED | ACTIVE |
+| Grace expired | ACTIVE | CONSUMED | PAYMENT_DUE | DUE | BLOCKED | EXPIRED |
+| Payment received | ACTIVE | CONSUMED | ACTIVE | PAID | ALLOWED | Revoked/None |
+| Suspended | SUSPENDED | CONSUMED | Existing state retained | Existing state retained | BLOCKED | Existing rules apply |
+| Cancelled | INACTIVE | CONSUMED | CANCELLED | NOT_DUE | BLOCKED | Revoked |
+| Current cancelled reactivation | ACTIVE | CONSUMED | CANCELLED | NOT_DUE | BLOCKED | None |
+| Proposed cancelled recovery | ACTIVE | CONSUMED | PAYMENT_DUE | DUE | BLOCKED | None |
+| Proposed recovery + payment | ACTIVE | CONSUMED | ACTIVE | PAID | ALLOWED | None |
+| Proposed recovery + grace | ACTIVE | CONSUMED | PAYMENT_DUE | DUE | ALLOWED | ACTIVE |
+
+---
+
+# 33. Admin Actions
+
+Conceptually, administrative actions have different eligibility conditions.
+
+| Action | Typical Eligibility | Result |
+|---|---|---|
+| Invite | New customer | Invitation created |
+| Resend invitation | Eligible unconsumed invitation | Replacement code |
+| Revoke invitation | Eligible unconsumed invitation | Registration prevented |
+| Grant grace | PAYMENT_DUE + eligible customer | Temporary access |
+| Record payment | Eligible subscription | Paid entitlement |
+| Suspend | Appropriate active customer | Administrative block |
+| Reactivate suspension | Suspended customer | Restore standing; entitlement still checked |
+| Cancel | Appropriate customer | Subscription cancelled |
+| Reopen cancelled customer | **Proposed** | PAYMENT_DUE recovery state |
+
+The backend remains authoritative even if the UI disables or hides an action.
+
+---
+
+# 34. Important APIs
+
+## Registration
+
+```text
+POST /api/registration/validate-invitation
+
+POST /api/registration/activate
+```
+
+## Administration
+
+```text
+GET /api/admin/dashboard
+
+GET /api/admin/customers
+
+POST /api/admin/customers/invitations
+
+POST /api/admin/customers/{customerId}/invitations/resend
+
+POST /api/admin/invitations/{invitationId}/revoke
+
+POST /api/admin/customers/{customerId}/grace-period
+
+POST /api/admin/customers/{customerId}/payments
+
+POST /api/admin/customers/{customerId}/cancel
+
+POST /api/admin/customers/{customerId}/suspend
+
+POST /api/admin/customers/{customerId}/reactivate
+```
+
+---
+
+# 35. End-to-End Scenario — Normal Customer
+
+Consider:
+
+```text
+Speed Sports Academy
+Trial = 14 days
+Billing = Monthly
+```
+
+### Day 1 — Invitation
+
+Admin creates invitation.
+
+```text
+Customer      INVITED
+Subscription  NOT_STARTED
+Payment       NOT_DUE
+Access        NOT_ALLOWED
+Invitation    SENT
+```
+
+No trial time has been consumed.
+
+### Day 3 — Owner Registers
+
+Owner uses the activation code.
+
+```text
+Customer      ACTIVE
+Subscription  TRIAL
+Payment       NOT_DUE
+Access        ALLOWED
+Invitation    CONSUMED
+```
+
+The 14-day trial begins **now**, not on Day 1.
+
+### Trial End
+
+No payment is received.
+
+```text
+Customer      ACTIVE
+Subscription  PAYMENT_DUE
+Payment       DUE
+Access        BLOCKED
+```
+
+### Admin Gives 3-Day Grace
+
+```text
+Customer      ACTIVE
+Subscription  PAYMENT_DUE
+Payment       DUE
+Access        ALLOWED
+Grace         ACTIVE
+```
+
+### Customer Pays During Grace
+
+Admin records payment.
+
+```text
+Customer      ACTIVE
+Subscription  ACTIVE
+Payment       PAID
+Access        ALLOWED
+Grace         REVOKED
+```
+
+The customer continues using ArenaOps.
+
+---
+
+# 36. Scenario — Customer Does Not Pay After Grace
+
+Starting from:
+
+```text
+Subscription PAYMENT_DUE
+Payment      DUE
+Grace        ACTIVE
+Access       ALLOWED
+```
+
+Grace expires.
+
+Result:
+
+```text
+Subscription PAYMENT_DUE
+Payment      DUE
+Grace        EXPIRED
+Access       BLOCKED
+```
+
+No fake cancellation occurs.
+
+The customer's data remains intact.
+
+---
+
+# 37. Scenario — Suspended Paid Customer
+
+Customer has:
+
+```text
+Customer     ACTIVE
+Subscription ACTIVE
+Payment      PAID
+Access       ALLOWED
+```
+
+Admin suspends the organization.
+
+Result:
+
+```text
+Customer     SUSPENDED
+Subscription ACTIVE
+Payment      PAID
+Access       BLOCKED
+```
+
+The payment did not disappear.
+
+The subscription was not fabricated as expired.
+
+The administrative restriction independently prevents access.
+
+When suspension is removed, access can return if the underlying entitlement is still valid.
+
+---
+
+# 38. Scenario — Cancelled Customer Returns
+
+Current state:
+
+```text
+Customer     INACTIVE
+Subscription CANCELLED
+Access       BLOCKED
+```
+
+The current Reactivate implementation can produce:
+
+```text
+Customer     ACTIVE
+Subscription CANCELLED
+Access       BLOCKED
+```
+
+which does not provide a complete recovery path.
+
+### Proposed behavior
+
+Reopen:
+
+```text
+Customer     ACTIVE
+Subscription PAYMENT_DUE
+Payment      DUE
+Access       BLOCKED
+```
+
+Then payment:
+
+```text
+Customer     ACTIVE
+Subscription ACTIVE
+Payment      PAID
+Access       ALLOWED
+```
+
+or temporary grace:
+
+```text
+Customer     ACTIVE
+Subscription PAYMENT_DUE
+Payment      DUE
+Grace        ACTIVE
+Access       ALLOWED temporarily
+```
+
+No second trial is automatically granted.
+
+---
+
+# 39. Authentication vs Authorization vs Entitlement
+
+These must remain separate.
+
+## Authentication
+
+Handled through Keycloak/OIDC.
+
+Question:
+
+> Who are you?
+
+---
+
+## Authorization
+
+Question:
+
+> Are you permitted to perform this operation?
+
+Example:
+
+An OWNER should not automatically have ArenaOps platform-admin privileges.
+
+Admin lifecycle operations require backend admin authorization.
+
+---
+
+## Tenant Authorization
+
+Question:
+
+> Does this resource belong to your customer?
+
+A user from Customer A must not gain access to Customer B simply by changing:
+
+```text
+/customer/100
+```
+
+to:
+
+```text
+/customer/101
+```
+
+Tenant ownership must be validated by the backend.
+
+Tenant/customer context should preferably be derived from authenticated identity rather than trusted from arbitrary frontend input.
+
+---
+
+## Commercial Entitlement
+
+Question:
+
+> Is this customer's subscription currently entitled to use ArenaOps?
+
+Example:
+
+```text
+Keycloak login        VALID
+User                  ACTIVE
+Customer              ACTIVE
+Subscription          PAYMENT_DUE
+Grace                 NONE
+```
+
+Result:
+
+```text
+ACCESS BLOCKED
+```
+
+Valid authentication does not override subscription rules.
+
+---
+
+# 40. Multi-Tenant Security Invariant
+
+The fundamental ArenaOps security rule is:
+
+```text
+Customer A data
+      |
+      X
+      |
+Customer B user
+```
+
+A customer user must never access another customer's:
+
+- members;
+- sessions;
+- courts/tables;
+- attendance;
+- reports;
+- configuration;
+- billing/customer-owned resources;
+- future tenant-specific resources.
+
+Tenant validation must happen at the backend.
+
+**Current documentation must not claim that every ArenaOps business API has already been audited for tenant isolation.**
+
+That requires a dedicated security/code review.
+
+---
+
+# 41. Audit Requirements
+
+Lifecycle operations should provide enough historical information to answer:
+
+```text
+Who changed it?
+What changed?
+When?
+From what state?
+To what state?
+Why?
+```
+
+Important events include:
+
+- invitation creation;
+- invitation sending;
+- email failure;
+- invitation consumption;
+- registration;
+- trial activation;
+- trial expiry;
+- grace grant;
+- grace expiry;
+- payment;
+- cancellation;
+- suspension;
+- reactivation.
+
+Audit history should be treated as historical evidence rather than overwritten by later state changes.
+
+---
+
+# 42. Failure Scenarios
+
+The lifecycle should consider more than the happy path.
+
+## Invitation Email Failure
+
+Invitation may exist while delivery fails.
+
+Do not start trial.
+
+Audit the failure.
+
+---
+
+## Duplicate Registration
+
+A consumed invitation must not be usable again.
+
+---
+
+## Concurrent Activation
+
+Two simultaneous requests must not both successfully consume the same one-time onboarding credential.
+
+Database locking/transactional consumption protects this flow.
+
+---
+
+## Wrong Email
+
+An activation code bound to one invited email must not onboard another email.
+
+---
+
+## Expired Invitation
+
+Registration must be rejected.
+
+---
+
+## Duplicate Grace
+
+An existing active override prevents another active grace grant.
+
+---
+
+## Expired Grace
+
+Backend entitlement evaluation must not continue granting access merely because a stale frontend still displays the customer as accessible.
+
+---
+
+## Keycloak Partial Failure
+
+Because Keycloak is external to the PostgreSQL transaction, partial success/failure must be considered and recovery must be possible.
+
+---
+
+## Stale UI
+
+The frontend may display an old state.
+
+Backend lifecycle and authorization rules remain authoritative.
+
+---
+
+# 43. Scheduler Responsibilities
+
+Current scheduled lifecycle processing includes:
+
+```text
+Trial expiry
+Grace expiry
+```
+
+with a default scan interval of approximately five minutes.
+
+However, protected API access should not blindly depend on waiting for the next scheduler execution.
+
+Backend entitlement evaluation also considers expiry conditions.
+
+This reduces the window where stale persisted state could incorrectly imply access.
+
+---
+
+# 44. Known Current Implementation Limitations
+
+The following items should remain visible until resolved.
+
+## 44.1 Cancelled Customer Reactivation
+
+`INACTIVE + CANCELLED` can become:
+
+```text
+ACTIVE + CANCELLED
+```
+
+without restoring entitlement.
+
+A proper returning-customer workflow is required.
+
+---
+
+## 44.2 Paid Subscription Expiry
+
+The scheduler does not currently implement a complete paid-period expiry transition.
+
+Persisted subscription status may therefore remain `ACTIVE` after the finite entitlement period has ended.
+
+Backend entitlement checks can still deny access.
+
+---
+
+## 44.3 Null Paid Period End
+
+An ACTIVE subscription with no period end is currently treated as having no end date.
+
+The business meaning of this behavior should be explicitly confirmed.
+
+---
+
+## 44.4 Renewal Policy
+
+Payment currently starts the new period from payment date.
+
+Rules for early renewal and extending an existing future period require explicit definition.
+
+---
+
+## 44.5 Payment Idempotency
+
+Duplicate payment submissions and retry behavior require an explicit business/idempotency policy.
+
+---
+
+## 44.6 Lifecycle Logic Distribution
+
+Lifecycle rules currently exist across areas including:
+
+```text
+AdminCustomerService
+CustomerAccessService
+```
+
+This introduces the possibility that transition rules and access rules can diverge over time.
+
+A shared/centralized lifecycle-transition model should be considered.
+
+---
+
+## 44.7 Timezone Consistency
+
+Current lifecycle timestamps use `LocalDateTime`.
+
+Timezone consistency must therefore be carefully handled across:
+
+- server;
+- database;
+- scheduler;
+- frontend;
+- deployment environment.
+
+This document does **not** claim that UTC storage is already enforced.
+
+---
+
+## 44.8 Tenant Isolation Audit
+
+Tenant isolation is an architectural requirement.
+
+This document does not claim that every existing business API has been comprehensively audited for cross-tenant access.
+
+A dedicated tenant-isolation review should be performed.
+
+---
+
+# 45. Proposed Architecture Improvements
+
+> Everything in this section is a recommendation and must not be interpreted as already implemented.
+
+### Centralize Lifecycle Transitions
+
+Instead of independently deciding states in multiple services, establish shared lifecycle transition rules.
+
+Conceptually:
+
+```text
+Current State
+     +
+Business Event
+     |
+     v
+Lifecycle Transition
+     |
+     +--> Customer state
+     +--> Subscription state
+     +--> Payment state
+     +--> Access implication
+     +--> Audit event
+```
+
+Examples of business events:
+
+```text
+OWNER_ACTIVATED
+TRIAL_EXPIRED
+GRACE_GRANTED
+GRACE_EXPIRED
+PAYMENT_RECORDED
+CUSTOMER_SUSPENDED
+CUSTOMER_CANCELLED
+CUSTOMER_REOPENED
+```
+
+This reduces contradictory state combinations.
+
+---
+
+# 46. Recommended Returning-Customer Flow
+
+Introduce an explicit operation such as:
+
+```text
+Reopen Subscription
+```
+
+instead of treating every situation as generic `Reactivate`.
+
+The distinction should be:
+
+```text
+REACTIVATE
+    =
+remove administrative suspension/restriction
+
+REOPEN SUBSCRIPTION
+    =
+restore cancelled commercial relationship
+    but require payment/grace before access
+```
+
+This makes the business language much clearer.
+
+---
+
+# 47. Architecture Principles
+
+ArenaOps should continue following these principles:
+
+### Backend is authoritative
+
+Never rely on Angular alone for security.
+
+### Authentication is not entitlement
+
+A valid Keycloak token does not automatically grant product access.
+
+### Customer status is not subscription status
+
+Keep administrative and commercial concepts separate.
+
+### Payment is not access
+
+Payment influences entitlement, but access remains an evaluated result.
+
+### Grace is not payment
+
+Never mark a customer paid simply because temporary access was granted.
+
+### Cancellation is not trial expiry
+
+These represent different business events.
+
+### Suspension is not cancellation
+
+Suspension is an administrative restriction.
+
+### Invitation is not a permanent license
+
+It is a one-time onboarding credential.
+
+### Preserve history
+
+Do not destroy customer/payment/audit history merely because a lifecycle state changes.
+
+### Tenant isolation is mandatory
+
+Every customer-owned resource must respect customer boundaries.
+
+---
+
+# 48. The ArenaOps Lifecycle in One Picture
+
+```text
+                     ARENAOPS ADMIN
+                           |
+                           |
+                    Invite Customer
+                           |
+                           v
+                  +------------------+
+                  | CUSTOMER INVITED |
+                  +------------------+
+                           |
+                    Owner registers
+                           |
+                           v
+                  +------------------+
+                  |      TRIAL       |
+                  |  Access Allowed  |
+                  +------------------+
+                     /            \
+                    /              \
+               Payment          Trial Ends
+                  |                 |
+                  v                 v
+          +---------------+   +----------------+
+          | PAID / ACTIVE |   |  PAYMENT DUE   |
+          | Access Allowed|   | Access Blocked |
+          +---------------+   +----------------+
+                  |                 |
+                  |             /       \
+                  |         Payment     Grace
+                  |            |          |
+                  |            |          v
+                  |            |    +-------------+
+                  |            |    |    GRACE    |
+                  |            |    | Temp Access |
+                  |            |    +-------------+
+                  |            |          |
+                  |            |     Grace Expires
+                  |            |          |
+                  |            |          v
+                  |            |    ACCESS BLOCKED
+                  |            |
+                  +<-----------+
+                  |
+             Admin actions
+              /       \
+             /         \
+        Suspend       Cancel
+           |             |
+           v             v
+      SUSPENDED       CANCELLED
+      Access Blocked  Access Blocked
+           |             |
+      Reactivate         |
+           |             | Proposed:
+           v             | Reopen
+    Check entitlement    v
+                    PAYMENT DUE
+                         |
+                  Payment / Grace
+```
+
+---
+
+# 49. Final Mental Model
+
+When debugging any ArenaOps customer-access problem, do **not** ask only:
+
+> "Is the customer ACTIVE?"
+
+Instead inspect the complete picture:
+
+```text
+1. Can the user authenticate?
+              |
+              v
+2. Is the application user valid?
+              |
+              v
+3. Which customer owns this user?
+              |
+              v
+4. Is the customer administratively allowed?
+              |
+              v
+5. What is the subscription state?
+              |
+              v
+6. Is the entitlement period still valid?
+              |
+              v
+7. What is the payment state?
+              |
+              v
+8. Is there a valid grace override?
+              |
+              v
+9. Is there another access restriction?
+              |
+              v
+        ALLOW / BLOCK
+```
+
+This is the central ArenaOps lifecycle principle.
+
+A customer can be:
+
+```text
+ACTIVE + TRIAL        -> Allowed
+ACTIVE + ACTIVE       -> Allowed if entitlement valid
+ACTIVE + PAYMENT_DUE  -> Blocked unless grace
+ACTIVE + CANCELLED    -> Blocked
+SUSPENDED + ACTIVE    -> Blocked
+INACTIVE + CANCELLED  -> Blocked
+```
+
+Therefore **customer state, subscription state, payment state, access state and authentication must remain separate concepts**.
+
+---
+
+# 50. Document Maintenance
+
+Update this document whenever any of the following changes:
+
+- customer states;
+- subscription states;
+- payment behavior;
+- invitation behavior;
+- trial calculation;
+- grace rules;
+- access evaluation;
+- cancellation/reactivation;
+- Keycloak integration;
+- admin lifecycle APIs;
+- scheduler behavior;
+- tenant/security architecture;
+- infrastructure topology.
+
+When a proposed improvement is implemented, move it from:
+
+```text
+PROPOSED
+```
+
+to:
+
+```text
+CURRENT IMPLEMENTATION
+```
+
+only after the code and tests confirm the behavior.
+
+---
+
+# 51. Current Architecture Summary
+
+```text
+                         ARENAOPS
+                            |
+          +-----------------+------------------+
+          |                                    |
+      Angular UI                         Infrastructure
+          |                         PostgreSQL / Keycloak
+          |
+          +---- Arena Login ---- Keycloak
+          |
+          |
+       Arena Core
+          |
+          +---- Customer lifecycle
+          |
+          +---- Registration
+          |
+          +---- Subscription
+          |
+          +---- Payment
+          |
+          +---- Grace
+          |
+          +---- Access enforcement
+          |
+          +---- Audit
+          |
+          +---- Scheduler
+          |
+          +---- Email
+          |
+          v
+      PostgreSQL
+```
+
+The architecture intentionally separates:
+
+**Identity → Customer → Subscription → Payment → Access → Audit**
+
+That separation should be preserved as ArenaOps grows.

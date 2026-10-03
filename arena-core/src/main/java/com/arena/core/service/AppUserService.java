@@ -1,5 +1,7 @@
 package com.arena.core.service;
 
+import com.arena.core.exception.ArenaOpsException;
+import com.arena.core.exception.ErrorCode;
 import com.arena.core.entity.AppUserEntity;
 import com.arena.core.entity.CustomerEntity;
 import com.arena.core.model.AppUserRequest;
@@ -24,7 +26,7 @@ public class AppUserService {
   @Transactional
   public AppUserResponse save(AppUserRequest request) {
     if (!"OWNER".equalsIgnoreCase(request.getRole())) {
-      throw new IllegalArgumentException("Public registration only supports owner accounts");
+      throw new ArenaOpsException(ErrorCode.ACCESS_DENIED);
     }
     request.setRole("OWNER");
     request.setIsActive(true);
@@ -41,14 +43,14 @@ public class AppUserService {
 
     if (existsInDb) {
       log.warn("[AppUserService] Duplicate user rejected: {}", request.getUsername());
-      throw new IllegalArgumentException("User already exists: " + request.getUsername());
+      throw new ArenaOpsException(ErrorCode.USER_ALREADY_EXISTS);
     }
 
     log.info("[AppUserService] Checking if user '{}' exists in Keycloak...", request.getUsername());
     boolean existsInKeycloak = keycloakService.existsInKeycloak(request.getUsername());
     log.info("[AppUserService] User '{}' existsInKeycloak={}", request.getUsername(), existsInKeycloak);
     if (existsInKeycloak) {
-      throw new IllegalArgumentException("User already exists: " + request.getUsername());
+      throw new ArenaOpsException(ErrorCode.USER_ALREADY_EXISTS);
     }
 
     String passwordHash = passwordEncoder.encode(request.getPassword());
@@ -78,9 +80,11 @@ public class AppUserService {
       String keycloakId = keycloakService.createUser(
           request.getUsername(), request.getPassword(), request.getEmail(), request.getRole());
       log.info("[AppUserService] User '{}' created in Keycloak with id={}", request.getUsername(), keycloakId);
+    } catch (ArenaOpsException e) {
+      throw e;
     } catch (Exception e) {
-      log.error("[AppUserService] Keycloak creation failed for '{}': {}", request.getUsername(), e.getMessage(), e);
-      throw new RuntimeException("Failed to create user in Keycloak: " + e.getMessage(), e);
+      log.warn("Identity creation failed userId={} type={}", saved.getId(), e.getClass().getSimpleName());
+      throw new ArenaOpsException(ErrorCode.IDENTITY_CREATION_FAILED);
     }
 
     return toResponse(saved);
@@ -103,10 +107,10 @@ public class AppUserService {
 
   private void validateOwnerRegistrationRequest(AppUserRequest request) {
     if (request.getOnboardingCode() == null || request.getOnboardingCode().isBlank()) {
-      throw new IllegalArgumentException("Activation code is required for owner registration");
+      throw new ArenaOpsException(ErrorCode.INVALID_REQUEST);
     }
     if (request.getEmail() == null || request.getEmail().isBlank()) {
-      throw new IllegalArgumentException("Email is required for owner registration");
+      throw new ArenaOpsException(ErrorCode.INVALID_REQUEST);
     }
   }
 }

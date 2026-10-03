@@ -58,7 +58,8 @@ class BrevoEmailServiceTest {
     assertTrue(content.contains("ARENA-ABCD-2345"));
     assertTrue(content.contains("2026-09-10T18:30"));
     assertTrue(content.contains("can only be used once"));
-    assertTrue(content.contains("https://arenaops.in/register"));
+    assertTrue(content.contains("https://arenaops.in/register#activationCode=ARENA-ABCD-2345&email=owner%40example.com"));
+    assertTrue(content.contains("choose your username and password"));
   }
 
   @Test
@@ -83,19 +84,15 @@ class BrevoEmailServiceTest {
     var failure = new org.springframework.mail.MailAuthenticationException("Authentication failed", cause);
     org.mockito.Mockito.doThrow(failure).when(mailSender).send(org.mockito.ArgumentMatchers.any(MimeMessage.class));
 
-    org.junit.jupiter.api.Assertions.assertSame(failure, org.junit.jupiter.api.Assertions.assertThrows(
-        org.springframework.mail.MailAuthenticationException.class,
-        () -> emailService.sendInvitation("Venue", "owner@example.com", "ARENA-ABCD-2345", LocalDateTime.now())));
+    var error = org.junit.jupiter.api.Assertions.assertThrows(com.arena.core.exception.ArenaOpsException.class,
+        () -> emailService.sendInvitation("Venue", "owner@example.com", "ARENA-ABCD-2345", LocalDateTime.now()));
+    assertEquals(com.arena.core.exception.ErrorCode.EMAIL_DELIVERY_FAILED, error.getErrorCode());
 
     String logs = output.getAll();
     assertTrue(logs.contains("preparing message"));
     assertTrue(logs.contains("submitting message to SMTP"));
     assertTrue(logs.contains("AuthenticationFailedException"));
-    assertTrue(logs.contains("535 Authentication rejected"));
-    assertTrue(logs.contains("smtpUsername=test-smtp-login"));
-    assertTrue(logs.contains("sender=noreply@arenaops.in"));
-    assertTrue(logs.contains("password=[masked] passwordLength=20 passwordHasSurroundingWhitespace=false"));
-    for (String secret : new String[] { "test-secret-password", "owner@example.com", "ARENA-ABCD-2345" }) {
+    for (String secret : new String[] { "test-secret-password", "test-smtp-login", "owner@example.com", "ARENA-ABCD-2345" }) {
       org.junit.jupiter.api.Assertions.assertFalse(logs.contains(secret));
     }
     org.junit.jupiter.api.Assertions.assertFalse(logs.contains("SMTP accepted message"));

@@ -29,6 +29,11 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class CustomerEntity {
 
+  // Optimistic version protects billing activation from stale lifecycle/admin writes.
+  @jakarta.persistence.Version
+  @Column(name = "VERSION", nullable = false)
+  private Long version;
+
   @Id
   @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "customer_seq")
   @SequenceGenerator(name = "customer_seq", sequenceName = "seq_customer", allocationSize = 1)

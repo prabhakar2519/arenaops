@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { BehaviorSubject, Observable } from 'rxjs';
-import { tap } from 'rxjs/operators';
+import { tap, timeout } from 'rxjs/operators';
 
 export type UserRole = 'ADMIN' | 'OWNER' | 'STAFF' | null;
 
@@ -165,6 +165,10 @@ export class AuthService {
     window.location.href = `${keycloakUrl}?${params.toString()}`;
   }
 
+  checkAvailability(): Observable<unknown> {
+    return this.http.get('/api/readiness').pipe(timeout(10000));
+  }
+
   resetPasswordWithKeycloak(): void {
     const baseUrl = window.location.origin;
     const resetPasswordUrl = `${this.keycloakBaseUrl}/realms/arena/login-actions/reset-credentials`;
@@ -180,6 +184,7 @@ export class AuthService {
     // Call backend to validate session and get user info
     // The backend (BFF) will check its own session
     return this.http.get<User>('/api/user').pipe(
+      timeout(20000),
       tap({
         next: user => {
           localStorage.setItem('currentUser', JSON.stringify(user));
@@ -199,6 +204,7 @@ export class AuthService {
     // Exchange the authorization code for a session on the backend
     // The backend (BFF) stores the tokens and returns only user info
     return this.http.post<User>('/api/token', { code, redirectUri }).pipe(
+      timeout(20000),
       tap({
         next: user => {
           console.log('User info received from BFF:', user);

@@ -1,5 +1,8 @@
 package com.arena.core.service;
 
+import com.arena.core.exception.ArenaOpsException;
+import com.arena.core.exception.ErrorCode;
+
 import com.arena.core.entity.CustomerEntity;
 import com.arena.core.entity.CustomerOnboardingCodeEntity;
 import jakarta.mail.MessagingException;
@@ -51,7 +54,9 @@ public class BrevoEmailService implements InvitationEmailService {
     CustomerOnboardingCodeEntity code = CustomerOnboardingCodeEntity.builder().code(activationCode).expiresAt(expiresAt).build();
     String activationUrl = UriComponentsBuilder.fromUriString(frontendUrl)
         .pathSegment("register")
-        .build()
+        .fragment("activationCode={code}&email={email}")
+        .encode()
+        .buildAndExpand(activationCode, invitedEmail)
         .toUriString();
     String subject = "You're invited to ArenaOps";
     String plainText = invitationPlainText(customer, code, activationUrl);
@@ -81,12 +86,7 @@ public class BrevoEmailService implements InvitationEmailService {
   private void send(String recipient, String subject, String plainText, String htmlText) {
     long started = System.nanoTime();
     String attemptId = java.util.UUID.randomUUID().toString();
-    log.info("[Email] attempt={} preparing message; transport=SMTP host={} port={}", attemptId, smtpHost, smtpPort);
-    log.info("[Email] attempt={} configuration: smtpUsername={} sender={} password={} passwordLength={} passwordHasSurroundingWhitespace={}",
-        attemptId, logValue(smtpUsername), logValue(from),
-        smtpPassword == null || smtpPassword.isEmpty() ? "[empty]" : "[masked]",
-        smtpPassword == null ? 0 : smtpPassword.length(),
-        smtpPassword != null && !smtpPassword.equals(smtpPassword.strip()));
+    log.info("[Email] attempt={} preparing message; transport=SMTP", attemptId);
     try {
       MimeMessage message = mailSender.createMimeMessage();
       MimeMessageHelper helper = new MimeMessageHelper(message, true, StandardCharsets.UTF_8.name());
@@ -103,15 +103,11 @@ public class BrevoEmailService implements InvitationEmailService {
           attemptId, (System.nanoTime() - started) / 1_000_000);
     } catch (MessagingException | UnsupportedEncodingException exception) {
       logFailure(attemptId, "message preparation", started, exception, recipient);
-      throw new IllegalStateException("Could not prepare transactional email", exception);
+      throw new ArenaOpsException(ErrorCode.EMAIL_DELIVERY_FAILED);
     } catch (RuntimeException exception) {
       logFailure(attemptId, "SMTP submission", started, exception, recipient);
-      throw exception;
+      throw new ArenaOpsException(ErrorCode.EMAIL_DELIVERY_FAILED);
     }
-  }
-
-  private String logValue(String value) {
-    return value == null || value.isEmpty() ? "[empty]" : value.replaceAll("[\\r\\n\\t]+", " ");
   }
 
   private void logFailure(String attemptId, String stage, long started, Throwable exception, String recipient) {
@@ -123,15 +119,8 @@ public class BrevoEmailService implements InvitationEmailService {
     while (!pending.isEmpty() && seen.size() < 20) {
       Throwable failure = pending.remove();
       if (!seen.add(failure)) continue;
-      String detail = String.valueOf(failure.getMessage());
-      for (String secret : new String[] { smtpPassword, smtpUsername, recipient }) {
-        if (secret != null && !secret.isBlank()) detail = detail.replace(secret, "[redacted]");
-      }
-      detail = detail.replaceAll("(?i)ARENA-[A-Z0-9-]+", "[activation-code]")
-          .replaceAll("[\\r\\n\\t]+", " ")
-          .replaceAll("[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+", "[email]");
-      log.error("[Email] attempt={} cause={} detail={}", attemptId, failure.getClass().getSimpleName(),
-          detail.substring(0, Math.min(detail.length(), 1500)));
+      // Provider exception messages may contain SMTP credentials, tokens, and full message bodies.
+      log.error("[Email] attempt={} cause={}", attemptId, failure.getClass().getSimpleName());
       if (failure.getCause() != null) pending.add(failure.getCause());
       if (failure instanceof MessagingException mail && mail.getNextException() != null) pending.add(mail.getNextException());
       if (failure instanceof org.springframework.mail.MailSendException send) {
@@ -147,7 +136,7 @@ public class BrevoEmailService implements InvitationEmailService {
         + "Activation code: " + code.getCode() + "\n"
         + "Valid until: " + code.getExpiresAt() + "\n"
         + "Activate ArenaOps: " + activationUrl + "\n\n"
-        + "Use the code with the same email address this invitation was sent to. "
+        + "Open the activation link to choose your username and password. "
         + "The activation code can only be used once.\n\nArenaOps\n"
         + "Sports Academy & Venue Management";
   }
@@ -169,7 +158,7 @@ public class BrevoEmailService implements InvitationEmailService {
             + "<p style=\"margin:0 0 26px;color:#53645b;font-size:13px\">Valid until " + expiry + "</p>"
             + button(activationUrl, "Activate ArenaOps")
             + "<p style=\"margin-top:26px;color:#53645b;font-size:13px;line-height:1.5\">"
-            + "Use this code with the same email address it was sent to. The code can only be used once.</p>");
+            + "Open the activation link to choose your username and password. The code can only be used once, after successful registration.</p>");
   }
 
   private String emailLayout(String heading, String body) {

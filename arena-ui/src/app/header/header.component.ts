@@ -122,7 +122,7 @@ export class HeaderComponent implements OnInit {
     }
 
     login() {
-        this.auth.loginWithKeycloak();
+        void this.router.navigate(['/login']);
     }
 
     toggleTheme() {

@@ -2,6 +2,8 @@ package com.arena.login.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.arena.login.exception.ArenaOpsException;
+import com.arena.login.exception.ErrorCode;
 import com.arena.login.model.TokenResponse;
 import com.arena.login.model.UserInfo;
 import lombok.RequiredArgsConstructor;
@@ -41,7 +43,14 @@ public class TokenService {
     @Value("${app.admin.usernames:arena_admin}")
     private String adminUsernamesConfig;
 
-    private final RestTemplate restTemplate = new RestTemplate();
+    private final RestTemplate restTemplate = identityClient();
+
+    private static RestTemplate identityClient() {
+        var factory = new org.springframework.http.client.JdkClientHttpRequestFactory(
+                java.net.http.HttpClient.newBuilder().connectTimeout(java.time.Duration.ofSeconds(5)).build());
+        factory.setReadTimeout(java.time.Duration.ofSeconds(10));
+        return new RestTemplate(factory);
+    }
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     public TokenResponse exchangeCodeForToken(String code) {
@@ -86,11 +95,18 @@ public class TokenService {
                         .build();
             } else {
                 log.error("Token exchange failed with status: {}", response.getStatusCode());
-                throw new RuntimeException("Failed to exchange code for token: " + response.getStatusCode());
+                throw new ArenaOpsException(ErrorCode.AUTHENTICATION_FAILED);
             }
+        } catch (org.springframework.web.client.ResourceAccessException e) {
+            throw new ArenaOpsException(ErrorCode.IDENTITY_PROVIDER_UNAVAILABLE);
+        } catch (org.springframework.web.client.HttpStatusCodeException e) {
+            throw new ArenaOpsException(e.getStatusCode().is5xxServerError()
+                    ? ErrorCode.IDENTITY_PROVIDER_UNAVAILABLE : ErrorCode.AUTHENTICATION_FAILED);
+        } catch (ArenaOpsException e) {
+            throw e;
         } catch (Exception e) {
-            log.error("Error exchanging code for token: {}", e.getMessage(), e);
-            throw new RuntimeException("Token exchange failed: " + e.getMessage());
+            log.warn("Identity response invalid type={}", e.getClass().getSimpleName());
+            throw new ArenaOpsException(ErrorCode.IDENTITY_PROVIDER_UNAVAILABLE);
         }
     }
 
@@ -126,11 +142,18 @@ public class TokenService {
                         .build();
             } else {
                 log.error("Token refresh failed with status: {}", response.getStatusCode());
-                throw new RuntimeException("Failed to refresh token: " + response.getStatusCode());
+                throw new ArenaOpsException(ErrorCode.AUTHENTICATION_FAILED);
             }
+        } catch (org.springframework.web.client.ResourceAccessException e) {
+            throw new ArenaOpsException(ErrorCode.IDENTITY_PROVIDER_UNAVAILABLE);
+        } catch (org.springframework.web.client.HttpStatusCodeException e) {
+            throw new ArenaOpsException(e.getStatusCode().is5xxServerError()
+                    ? ErrorCode.IDENTITY_PROVIDER_UNAVAILABLE : ErrorCode.AUTHENTICATION_FAILED);
+        } catch (ArenaOpsException e) {
+            throw e;
         } catch (Exception e) {
-            log.error("Error refreshing token: {}", e.getMessage(), e);
-            throw new RuntimeException("Token refresh failed: " + e.getMessage());
+            log.warn("Identity response invalid type={}", e.getClass().getSimpleName());
+            throw new ArenaOpsException(ErrorCode.IDENTITY_PROVIDER_UNAVAILABLE);
         }
     }
 
@@ -139,7 +162,7 @@ public class TokenService {
             // Decode JWT token to extract user info
             String[] parts = accessToken.split("\\.");
             if (parts.length < 2) {
-                throw new RuntimeException("Invalid token format");
+                throw new ArenaOpsException(ErrorCode.AUTHENTICATION_FAILED);
             }
 
             String payload = new String(Base64.getUrlDecoder().decode(parts[1]));
@@ -181,8 +204,7 @@ public class TokenService {
                     .build();
 
         } catch (Exception e) {
-            log.error("Error extracting user info from token: {}", e.getMessage());
-            throw new RuntimeException("Failed to extract user info: " + e.getMessage());
+            throw new ArenaOpsException(ErrorCode.AUTHENTICATION_FAILED);
         }
     }
 

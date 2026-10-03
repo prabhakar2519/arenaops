@@ -9,7 +9,8 @@ current_release_file="$state_dir/current-app-release"
 
 : "${IMAGE_REPOSITORY:?IMAGE_REPOSITORY is required}"
 : "${IMAGE_TAG:?IMAGE_TAG is required}"
-test -f /opt/arenaops/config/app.env
+: "${ARENAOPS_APP_ENV_FILE:?GitHub-provided runtime environment file is required}"
+test -f "$ARENAOPS_APP_ENV_FILE"
 mkdir -p "$state_dir"
 
 if [[ -f "$current_release_file" ]]; then

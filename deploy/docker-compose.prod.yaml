@@ -5,7 +5,7 @@ services:
     image: ${IMAGE_REPOSITORY}/arena-core:${IMAGE_TAG}
     restart: unless-stopped
     env_file:
-      - ${ARENAOPS_APP_ENV_FILE:-/opt/arenaops/config/app.env}
+      - ${ARENAOPS_APP_ENV_FILE:?GitHub-provided runtime environment file is required}
     environment:
       SPRING_PROFILES_ACTIVE: prod
       ARENA_CORE_URL: http://arena-core:7701
@@ -17,7 +17,7 @@ services:
     depends_on:
       - arena-core
     env_file:
-      - ${ARENAOPS_APP_ENV_FILE:-/opt/arenaops/config/app.env}
+      - ${ARENAOPS_APP_ENV_FILE:?GitHub-provided runtime environment file is required}
     environment:
       SPRING_PROFILES_ACTIVE: prod
       ARENA_CORE_URL: http://arena-core:7701

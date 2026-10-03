@@ -1,10 +1,15 @@
 <div class="registration-container">
     <div class="registration-card">
         <h1>Create Account</h1>
-        <p class="subtitle">Register as an owner using your one-time ArenaOps activation code</p>
+        <p class="subtitle" *ngIf="!isInvitationLink">Register as an owner using your one-time ArenaOps activation code</p>
+        <p class="subtitle" *ngIf="isInvitationLink && invitationReady">Create your account for {{ organizationName }} using {{ invitedEmail }}. Choose your username and password.</p>
+        <p *ngIf="isCheckingInvitation" role="status">Checking your invitation...</p>
 
         <form [formGroup]="userForm" (ngSubmit)="onSubmit()">
-            <div class="form-group">
+            <div *ngFor="let field of fieldErrors | keyvalue" class="error-message" role="alert">
+                {{ field.key }}: {{ field.value }}
+            </div>
+            <div class="form-group" *ngIf="!isInvitationLink">
                 <label for="onboardingCode">Activation Code</label>
                 <input id="onboardingCode" type="text" formControlName="onboardingCode" placeholder="ARENA-XXXX-XXXX"
                     [class.error]="userForm.get('onboardingCode')?.invalid && userForm.get('onboardingCode')?.touched">
@@ -27,7 +32,7 @@
                 </div>
             </div>
 
-            <div class="form-group">
+            <div class="form-group" *ngIf="!isInvitationLink">
                 <label for="email">Email</label>
                 <input id="email" type="email" formControlName="email" placeholder="your.email@example.com"
                     [class.error]="userForm.get('email')?.invalid && userForm.get('email')?.touched">
@@ -55,7 +60,7 @@
                 </div>
             </div>
 
-            <button type="submit" class="btn-submit" [disabled]="isSubmitting">
+            <button type="submit" class="btn-submit" [disabled]="isSubmitting || isSuccess || (isInvitationLink && !invitationReady)">
                 <span *ngIf="!isSubmitting">Create Account</span>
                 <span *ngIf="isSubmitting">Creating Account...</span>
             </button>

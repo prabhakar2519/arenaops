@@ -1,5 +1,8 @@
 package com.arena.login.config;
 
+import com.arena.login.exception.ErrorCode;
+import com.arena.login.exception.ApiErrors;
+
 import org.springframework.boot.web.servlet.server.CookieSameSiteSupplier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -18,6 +21,11 @@ import java.util.ArrayList;
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
+        private final ApiErrors apiErrors;
+
+        public SecurityConfig(ApiErrors apiErrors) {
+                this.apiErrors = apiErrors;
+        }
 
         @org.springframework.beans.factory.annotation.Value("${app.cors.allowed-origins:http://localhost:4200,http://localhost:3000}")
         private String allowedOriginsConfig;
@@ -27,6 +35,11 @@ public class SecurityConfig {
                 http
                                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                                 .csrf(csrf -> csrf.disable())
+                                .exceptionHandling(errors -> errors
+                                        .authenticationEntryPoint((request, response, ex) -> apiErrors.write(request, response,
+                                                ErrorCode.AUTHENTICATION_REQUIRED))
+                                        .accessDeniedHandler((request, response, ex) -> apiErrors.write(request, response,
+                                                ErrorCode.ACCESS_DENIED)))
                                 .sessionManagement(session -> session
                                                 .sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
                                 .authorizeHttpRequests(

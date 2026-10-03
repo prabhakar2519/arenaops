@@ -1,0 +1,12 @@
+.billing { max-width: 960px; margin: 2rem auto; padding: 1rem; color: var(--text-primary, inherit); }
+.card { padding: 1.5rem; margin: 1rem 0; border: 1px solid var(--accent-gold, #b09b61); border-radius: 12px; background: var(--bg-secondary, transparent); }
+.plans { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem; }
+dl { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; }
+dd { margin: 0; overflow-wrap: anywhere; }
+dt { opacity: .8; }
+.actions { display: flex; flex-wrap: wrap; gap: .75rem; }
+.actions p { flex-basis: 100%; }
+button { padding: .7rem 1rem; border: 1px solid var(--accent-gold, #b09b61); border-radius: 6px; cursor: pointer; }
+button:disabled { opacity: .5; cursor: wait; }
+.error { padding: 1rem; color: #d84343; }
+@media (max-width: 480px) { dl { grid-template-columns: 1fr; } dd { margin-bottom: .5rem; } }

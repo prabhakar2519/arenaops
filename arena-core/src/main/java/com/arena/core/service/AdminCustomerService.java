@@ -1,5 +1,9 @@
 package com.arena.core.service;
 
+import com.arena.core.validation.CustomerEmailValidator;
+import com.arena.core.exception.ArenaOpsException;
+import com.arena.core.exception.ErrorCode;
+import com.arena.core.model.EmailDelivery;
 import com.arena.core.entity.AccessOverrideEntity;
 import com.arena.core.entity.CustomerEntity;
 import com.arena.core.entity.CustomerOnboardingCodeEntity;
@@ -52,6 +56,7 @@ public class AdminCustomerService {
   private final ActivationCodeService activationCodeService;
   private final InvitationEmailService invitationEmailService;
   private final AuditService auditService;
+  private final CustomerEmailValidator customerEmailValidator;
 
   @Transactional
   public AdminCustomerResponse createCustomer(AdminCustomerRequest request, String adminUsername) {
@@ -59,6 +64,7 @@ public class AdminCustomerService {
     LocalDateTime now = LocalDateTime.now();
     String organizationName = request.getCustomerName().trim();
     String contactEmail = normalizeEmail(request.getOwnerEmail());
+    customerEmailValidator.assertAvailable(contactEmail);
     String plan = normalizePlan(request.getSports());
     int trialDays = Math.max(0, request.getTrialDays());
     int expiryDays = Math.max(1, request.getInvitationExpiryDays());
@@ -120,8 +126,10 @@ public class AdminCustomerService {
 
     audit("CUSTOMER_INVITATION_CREATED", saved, null, state(saved, subscription, invitation, activeGrace(saved.getId())),
         adminUsername, null);
-    sendInvitation(saved, invitation, activationCode, adminUsername);
-    return toResponse(saved, subscription, invitation, activeGrace(saved.getId()), activationCode);
+    EmailDelivery delivery = sendInvitation(saved, invitation, activationCode, adminUsername);
+    AdminCustomerResponse response = toResponse(saved, subscription, invitation, activeGrace(saved.getId()), activationCode);
+    response.setEmailDelivery(delivery);
+    return response;
   }
 
   @Transactional
@@ -130,13 +138,13 @@ public class AdminCustomerService {
     CustomerEntity customer = customer(customerId);
     CustomerOnboardingCodeEntity invitation = latestInvitation(customerId);
     if (invitation == null) {
-      throw new IllegalArgumentException("Customer has no invitation to resend");
+      throw new ArenaOpsException(ErrorCode.INVITATION_NOT_FOUND);
     }
     if (invitationStatus(invitation) == InvitationStatus.CONSUMED) {
-      throw new IllegalArgumentException("Consumed invitation cannot be resent");
+      throw new ArenaOpsException(ErrorCode.INVITATION_ALREADY_CONSUMED);
     }
     if (invitationStatus(invitation) == InvitationStatus.REVOKED) {
-      throw new IllegalArgumentException("Revoked invitation cannot be resent");
+      throw new ArenaOpsException(ErrorCode.INVITATION_REVOKED);
     }
     String activationCode = uniqueActivationCode();
     String hash = activationCodeService.hashCode(activationCode);
@@ -149,18 +157,20 @@ public class AdminCustomerService {
     invitation.setUsedAt(null);
     invitation.setUsedByUsername(null);
     CustomerOnboardingCodeEntity saved = invitationRepository.save(invitation);
-    sendInvitation(customer, saved, activationCode, adminUsername);
+    EmailDelivery delivery = sendInvitation(customer, saved, activationCode, adminUsername);
     audit("INVITATION_RESENT", customer, null, state(customer, latestSubscription(customerId).orElse(null), saved,
         activeGrace(customerId)), adminUsername, null);
-    return toResponse(customer, latestSubscription(customerId).orElse(null), saved, activeGrace(customerId), activationCode);
+    AdminCustomerResponse response = toResponse(customer, latestSubscription(customerId).orElse(null), saved, activeGrace(customerId), activationCode);
+    response.setEmailDelivery(delivery);
+    return response;
   }
 
   @Transactional
   public AdminCustomerResponse revokeInvitation(Long invitationId, String adminUsername, String reason) {
     CustomerOnboardingCodeEntity invitation = invitationRepository.findById(invitationId)
-        .orElseThrow(() -> new IllegalArgumentException("Invitation not found: " + invitationId));
+        .orElseThrow(() -> new ArenaOpsException(ErrorCode.INVITATION_NOT_FOUND));
     if (invitationStatus(invitation) == InvitationStatus.CONSUMED) {
-      throw new IllegalArgumentException("Consumed invitation cannot be revoked");
+      throw new ArenaOpsException(ErrorCode.INVITATION_ALREADY_CONSUMED);
     }
     CustomerEntity customer = customer(invitation.getCustomerId());
     CustomerSubscriptionEntity subscription = latestSubscription(customer.getId()).orElse(null);
@@ -199,7 +209,7 @@ public class AdminCustomerService {
     CustomerEntity customer = customer(invitation.getCustomerId());
     CustomerSubscriptionEntity subscription = requireSubscription(customer.getId());
     if (customer.getCustomerStatus() == CustomerStatus.ACTIVE) {
-      throw new IllegalArgumentException("Customer is already active");
+      throw new ArenaOpsException(ErrorCode.INVALID_STATE);
     }
 
     LocalDateTime now = LocalDateTime.now();
@@ -275,13 +285,13 @@ public class AdminCustomerService {
     CustomerSubscriptionEntity subscription = requireSubscription(customerId);
     expireLifecycleForCustomer(customer, subscription);
     if (subscription.getSubscriptionStatus() != SubscriptionStatus.PAYMENT_DUE) {
-      throw new IllegalArgumentException("Grace period can only be granted when payment is due");
+      throw new ArenaOpsException(ErrorCode.GRACE_PERIOD_NOT_ALLOWED);
     }
     if (request.getEndsAt() == null || !request.getEndsAt().isAfter(LocalDateTime.now())) {
-      throw new IllegalArgumentException("Grace period end must be in the future");
+      throw new ArenaOpsException(ErrorCode.INVALID_GRACE_END);
     }
     if (!accessOverrideRepository.findByCustomerIdAndStatus(customerId, AccessOverrideStatus.ACTIVE).isEmpty()) {
-      throw new IllegalArgumentException("Customer already has an active grace period");
+      throw new ArenaOpsException(ErrorCode.GRACE_PERIOD_ALREADY_ACTIVE);
     }
     String previous = state(customer, subscription, latestInvitation(customerId), activeGrace(customerId));
     AccessOverrideEntity grace = accessOverrideRepository.save(AccessOverrideEntity.builder()
@@ -307,7 +317,7 @@ public class AdminCustomerService {
     CustomerEntity customer = customer(customerId);
     CustomerSubscriptionEntity subscription = requireSubscription(customerId);
     if (customer.getCustomerStatus() == CustomerStatus.INACTIVE || subscription.getSubscriptionStatus() == SubscriptionStatus.CANCELLED) {
-      throw new IllegalArgumentException("Cancelled customers must be reactivated before recording payment");
+      throw new ArenaOpsException(ErrorCode.SUBSCRIPTION_CANCELLED);
     }
     String previous = state(customer, subscription, latestInvitation(customerId), activeGrace(customerId));
     LocalDateTime paidAt = request.getPaymentDate() != null ? request.getPaymentDate() : LocalDateTime.now();
@@ -394,7 +404,19 @@ public class AdminCustomerService {
   public AdminCustomerResponse reactivateCustomer(Long customerId, String adminUsername, String reason) {
     CustomerEntity customer = customer(customerId);
     CustomerSubscriptionEntity subscription = requireSubscription(customerId);
+    if (customer.getCustomerStatus() != CustomerStatus.INACTIVE
+        && customer.getCustomerStatus() != CustomerStatus.SUSPENDED
+        && !(customer.getCustomerStatus() == CustomerStatus.ACTIVE
+            && subscription.getSubscriptionStatus() == SubscriptionStatus.CANCELLED)) {
+      throw new ArenaOpsException(ErrorCode.INVALID_STATE);
+    }
     String previous = state(customer, subscription, latestInvitation(customerId), activeGrace(customerId));
+    if (subscription.getSubscriptionStatus() == SubscriptionStatus.CANCELLED) {
+      subscription.setSubscriptionStatus(SubscriptionStatus.PAYMENT_DUE);
+      customer.setPaymentStatus(PaymentStatus.DUE.name());
+      revokeActiveGrace(customerId, adminUsername, "Cancelled subscription reopened");
+      subscriptionRepository.save(subscription);
+    }
     customer.setCustomerStatus(CustomerStatus.ACTIVE);
     customer.setStatus(CustomerStatus.ACTIVE.name());
     customer.setDeactivatedAt(null);
@@ -478,8 +500,11 @@ public class AdminCustomerService {
       customer.setAccessAllowed(false);
       return;
     }
-    if (subscription.getSubscriptionStatus() == SubscriptionStatus.TRIAL
-        || subscription.getSubscriptionStatus() == SubscriptionStatus.ACTIVE
+    LocalDateTime now = LocalDateTime.now();
+    if ((subscription.getSubscriptionStatus() == SubscriptionStatus.TRIAL
+            && subscription.getTrialEndsAt() != null && !now.isAfter(subscription.getTrialEndsAt()))
+        || (subscription.getSubscriptionStatus() == SubscriptionStatus.ACTIVE
+            && (subscription.getCurrentPeriodEnd() == null || !now.isAfter(subscription.getCurrentPeriodEnd())))
         || activeGrace(customer.getId()).isPresent()) {
       customer.setAccessStatus(AccessStatus.ALLOWED);
       customer.setAccessAllowed(true);
@@ -489,36 +514,41 @@ public class AdminCustomerService {
     customer.setAccessAllowed(false);
   }
 
-  private void sendInvitation(CustomerEntity customer, CustomerOnboardingCodeEntity invitation, String activationCode,
+  private EmailDelivery sendInvitation(CustomerEntity customer, CustomerOnboardingCodeEntity invitation, String activationCode,
       String adminUsername) {
     String previous = state(customer, latestSubscription(customer.getId()).orElse(null), invitation, activeGrace(customer.getId()));
-    log.info("[Invitation] sending; customerId={} invitationId={} transport={}", customer.getId(), invitation.getId(), invitationEmailService.getClass().getSimpleName());
     try {
       invitationEmailService.sendInvitation(resolveOrganizationName(customer), invitation.getInvitedEmail(),
           activationCode, invitation.getExpiresAt());
-      log.info("[Invitation] transport accepted; customerId={} invitationId={}; recording SENT status and audit event", customer.getId(), invitation.getId());
-      invitation.setStatus(InvitationStatus.SENT.name());
-      invitation.setInvitationStatus(InvitationStatus.SENT);
-      invitation.setSentAt(LocalDateTime.now());
-      invitationRepository.save(invitation);
-      audit("INVITATION_EMAIL_SENT", customer, previous,
-          state(customer, latestSubscription(customer.getId()).orElse(null), invitation, activeGrace(customer.getId())),
-          adminUsername, null);
     } catch (RuntimeException ex) {
-      log.error("[Invitation] failed; customerId={} invitationId={} errorType={}; recording failure audit; see Email logs for SMTP details", customer.getId(), invitation.getId(), ex.getClass().getSimpleName());
-      audit("INVITATION_EMAIL_FAILED", customer, previous, previous, adminUsername, ex.getMessage());
+      ErrorCode code = ex instanceof ArenaOpsException failure && failure.getErrorCode() == ErrorCode.EMAIL_DISABLED
+          ? ErrorCode.EMAIL_DISABLED : ErrorCode.EMAIL_DELIVERY_FAILED;
+      log.warn("Invitation delivery not completed customerId={} invitationId={} errorCode={}",
+          customer.getId(), invitation.getId(), code);
+      audit("INVITATION_EMAIL_FAILED", customer, previous, previous, adminUsername, code.name());
+      return new EmailDelivery(code == ErrorCode.EMAIL_DISABLED ? EmailDelivery.Status.DISABLED : EmailDelivery.Status.FAILED,
+          code, code.getDescription());
     }
+    // Database/audit failures must propagate; they are not email partial-success outcomes.
+    invitation.setStatus(InvitationStatus.SENT.name());
+    invitation.setInvitationStatus(InvitationStatus.SENT);
+    invitation.setSentAt(LocalDateTime.now());
+    invitationRepository.save(invitation);
+    audit("INVITATION_EMAIL_SENT", customer, previous,
+        state(customer, latestSubscription(customer.getId()).orElse(null), invitation, activeGrace(customer.getId())),
+        adminUsername, null);
+    return new EmailDelivery(EmailDelivery.Status.SENT, null, "Invitation email accepted for delivery.");
   }
 
   private CustomerOnboardingCodeEntity findInvitationForActivation(String activationCode) {
     String normalized = activationCodeService.normalize(activationCode);
     if (normalized.isBlank()) {
-      throw new IllegalArgumentException("Activation code is required");
+      throw new ArenaOpsException(ErrorCode.INVALID_REQUEST);
     }
     String hash = activationCodeService.hashCode(normalized);
     return invitationRepository.findByActivationCodeHashForUpdate(hash)
         .or(() -> invitationRepository.findByCodeForUpdate(normalized))
-        .orElseThrow(() -> new IllegalArgumentException("Invalid activation code"));
+        .orElseThrow(() -> new ArenaOpsException(ErrorCode.INVITATION_INVALID));
   }
 
   private void validateInvitationCanBeConsumed(CustomerOnboardingCodeEntity invitation, String email) {
@@ -527,19 +557,19 @@ public class AdminCustomerService {
       invitation.setStatus(InvitationStatus.EXPIRED.name());
       invitation.setInvitationStatus(InvitationStatus.EXPIRED);
       invitationRepository.save(invitation);
-      throw new IllegalArgumentException("Activation code has expired");
+      throw new ArenaOpsException(ErrorCode.INVITATION_EXPIRED);
     }
     if (status == InvitationStatus.REVOKED) {
-      throw new IllegalArgumentException("Activation code has been revoked");
+      throw new ArenaOpsException(ErrorCode.INVITATION_REVOKED);
     }
     if (status == InvitationStatus.CONSUMED || invitation.getUsedCount() >= invitation.getMaxUses()) {
-      throw new IllegalArgumentException("Activation code has already been used");
+      throw new ArenaOpsException(ErrorCode.INVITATION_ALREADY_CONSUMED);
     }
     if (status != InvitationStatus.SENT && status != InvitationStatus.CREATED) {
-      throw new IllegalArgumentException("Activation code is not ready for registration");
+      throw new ArenaOpsException(ErrorCode.INVITATION_NOT_READY);
     }
     if (!normalizeEmail(email).equals(normalizeEmail(invitation.getInvitedEmail()))) {
-      throw new IllegalArgumentException("Registration email must match the invited email");
+      throw new ArenaOpsException(ErrorCode.INVITATION_EMAIL_MISMATCH);
     }
   }
 
@@ -609,13 +639,13 @@ public class AdminCustomerService {
   }
 
   private CustomerEntity customer(Long customerId) {
-    return customerRepository.findById(customerId)
-        .orElseThrow(() -> new IllegalArgumentException("Customer not found: " + customerId));
+    return customerRepository.findBillingCustomerForUpdate(customerId)
+        .orElseThrow(() -> new ArenaOpsException(ErrorCode.CUSTOMER_NOT_FOUND));
   }
 
   private CustomerSubscriptionEntity requireSubscription(Long customerId) {
     return latestSubscription(customerId)
-        .orElseThrow(() -> new IllegalStateException("Subscription record is missing for customer " + customerId));
+        .orElseThrow(() -> new ArenaOpsException(ErrorCode.SUBSCRIPTION_NOT_FOUND));
   }
 
   private Optional<CustomerSubscriptionEntity> latestSubscription(Long customerId) {
@@ -658,10 +688,10 @@ public class AdminCustomerService {
         .distinct()
         .collect(Collectors.joining(","));
     if (value.isBlank()) {
-      throw new IllegalArgumentException("Plan is required");
+      throw new ArenaOpsException(ErrorCode.INVALID_REQUEST);
     }
     if (!CUSTOMER_PLANS.contains(value)) {
-      throw new IllegalArgumentException("Plan must be SINGLE, DUAL, MULTI_SPORTS, or ACADEMY");
+      throw new ArenaOpsException(ErrorCode.INVALID_REQUEST);
     }
     return value;
   }
@@ -669,7 +699,7 @@ public class AdminCustomerService {
   private String normalizeSubscriptionType(String subscriptionType) {
     String value = subscriptionType.trim().toUpperCase(Locale.ROOT);
     if (!value.equals("MONTHLY") && !value.equals("YEARLY")) {
-      throw new IllegalArgumentException("Subscription type must be MONTHLY or YEARLY");
+      throw new ArenaOpsException(ErrorCode.INVALID_REQUEST);
     }
     return value;
   }
@@ -683,7 +713,7 @@ public class AdminCustomerService {
 
   private String normalizeEmail(String value) {
     if (value == null || value.isBlank()) {
-      throw new IllegalArgumentException("Email is required");
+      throw new ArenaOpsException(ErrorCode.INVALID_REQUEST);
     }
     return value.trim().toLowerCase(Locale.ROOT);
   }

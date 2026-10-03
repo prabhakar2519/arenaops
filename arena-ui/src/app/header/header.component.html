@@ -47,11 +47,6 @@
             </a>
 
             <ng-container *ngIf="auth.hasRole('OWNER')">
-                <a *ngIf="auth.canRegisterAnotherSport" routerLink="/parlour-registration" routerLinkActive="active" class="nav-link">
-                    <span class="link-icon">Add</span>
-                    <span class="link-text">Add Sport</span>
-                    <div class="underline"></div>
-                </a>
                 <a routerLink="/manage-tables" routerLinkActive="active" class="nav-link">
                     <span class="link-icon">Areas</span>
                     <span class="link-text">Play Areas</span>
@@ -65,6 +60,12 @@
                 <a routerLink="/staff-register" routerLinkActive="active" class="nav-link">
                     <span class="link-icon">Team</span>
                     <span class="link-text">Staff Management</span>
+                    <div class="underline"></div>
+                </a>
+                <a routerLink="/billing" routerLinkActive="active" class="nav-link">Subscription &amp; Billing</a>
+                <a *ngIf="auth.canRegisterAnotherSport" routerLink="/parlour-registration" routerLinkActive="active" class="nav-link">
+                    <span class="link-icon">Add</span>
+                    <span class="link-text">Add Sport</span>
                     <div class="underline"></div>
                 </a>
             </ng-container>

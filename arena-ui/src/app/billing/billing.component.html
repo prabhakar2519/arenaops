@@ -1,0 +1,64 @@
+<section class="billing" aria-labelledby="billing-title">
+  <h1 id="billing-title">Subscription &amp; Billing</h1>
+  <p *ngIf="busy" role="status">Loading billing details…</p>
+  <div *ngIf="error" role="alert" class="error">{{ error }} <button (click)="reload()" [disabled]="busy">Refresh</button></div>
+  <ng-container *ngIf="overview as v">
+    <article class="card">
+      <h2>{{ v.academy }}</h2>
+      <dl>
+        <dt>Current plan</dt><dd>{{ v.currentPlan }}</dd>
+        <dt>Sports entitlement</dt><dd>{{ v.sportsEntitlement }}</dd>
+        <dt>Current billing amount</dt><dd>{{ v.currentPrice | currency:v.currentCurrency }}</dd>
+        <dt>Subscription status</dt><dd>{{ v.status }}</dd>
+        <dt>Trial started</dt><dd>{{ (v.trialStartedAt | date:'dd-MMM-yyyy') || '—' }}</dd>
+        <dt>Trial ends</dt><dd>{{ (v.trialEndsAt | date:'dd-MMM-yyyy') || '—' }}</dd>
+        <dt>Trial days remaining</dt><dd>{{ v.remainingTrialDays }}</dd>
+        <dt>Subscription started</dt><dd>{{ (v.subscriptionStartedAt | date:'dd-MMM-yyyy') || '—' }}</dd>
+        <dt>Renewal date</dt><dd>{{ (v.renewalAt | date:'dd-MMM-yyyy') || '—' }}</dd>
+        <dt>Billing cycle</dt><dd>{{ v.billingCycle }}</dd>
+        <dt>Payment status</dt><dd>{{ v.paymentStatus }}</dd>
+      </dl>
+    </article>
+    <ng-container *ngIf="!order">
+      <h2>{{ v.status === 'ACTIVE' ? 'Renew subscription' : 'Subscribe' }}</h2>
+      <div class="plans">
+        <article class="card" *ngFor="let plan of v.plans">
+          <h3>{{ plan.name }} · {{ plan.cycle === 'MONTHLY' ? 'Monthly' : 'Annual' }}</h3>
+          <p>{{ plan.baseAmount | currency:plan.currency }} / {{ plan.cycle === 'MONTHLY' ? 'month' : 'year' }} + GST</p>
+          <p>Total including GST: {{ plan.total | currency:plan.currency }}</p>
+          <button (click)="select(plan)" [disabled]="busy || v.status === 'CANCELLED' || v.status === 'NOT_STARTED'">Continue</button>
+        </article>
+      </div>
+    </ng-container>
+    <article *ngIf="order as o" class="card">
+      <h2>{{ o.status === 'PAYMENT_PENDING' ? 'Mock checkout' : 'Order summary' }}</h2>
+      <p>Order: {{ o.id }}</p>
+      <dl>
+        <dt>Academy</dt><dd>{{ o.academy }}</dd>
+        <dt>Plan</dt><dd>{{ o.planName }}</dd>
+        <dt>Billing cycle</dt><dd>{{ o.cycle }}</dd>
+        <dt>Base amount</dt><dd>{{ o.baseAmount | currency:o.currency }}</dd>
+        <dt>Tax / GST</dt><dd>{{ o.taxAmount | currency:o.currency }}</dd>
+        <dt>Total</dt><dd>{{ o.total | currency:o.currency }}</dd>
+        <dt>Order status</dt><dd>{{ o.status }}</dd>
+        <dt>Payment status</dt><dd>{{ o.paymentStatus || 'Not started' }}</dd>
+      </dl>
+      <p *ngIf="expired && o.status !== 'PAID'" role="alert">This order has expired. Return to billing to create a new order.</p>
+      <div class="actions" *ngIf="o.status === 'CREATED' || o.status === 'FAILED'">
+        <button (click)="back()" [disabled]="busy">Back to plans</button>
+        <button (click)="checkout()" [disabled]="busy || expired">{{ o.status === 'FAILED' ? 'Retry payment' : 'Proceed to payment' }}</button>
+      </div>
+      <div *ngIf="o.status === 'PAYMENT_PENDING' && v.mockEnabled" class="actions">
+        <p>Development simulator. No payment credentials are needed.</p>
+        <button (click)="simulate('PAID')" [disabled]="busy || expired">Simulate successful payment</button>
+        <button (click)="simulate('FAILED')" [disabled]="busy || expired">Simulate failed payment</button>
+        <button (click)="simulate('CANCELLED')" [disabled]="busy || expired">Cancel payment</button>
+      </div>
+      <p *ngIf="o.status === 'PAYMENT_PENDING' && !v.mockEnabled">Payment processing is unavailable in this environment.</p>
+      <p *ngIf="o.status === 'PAID'" role="status">Payment successful. Your subscription is active.</p>
+      <p *ngIf="o.status === 'FAILED'" role="status">Payment failed. Retry to start a new payment attempt.</p>
+      <p *ngIf="o.status === 'CANCELLED'" role="status">Payment cancelled.</p>
+      <button *ngIf="o.status === 'PAID' || o.status === 'CANCELLED' || expired" (click)="clear()" [disabled]="busy">Return to billing</button>
+    </article>
+  </ng-container>
+</section>

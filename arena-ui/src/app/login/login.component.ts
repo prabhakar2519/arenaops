@@ -1,4 +1,6 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { scrollToTopOnError } from '../api-error';
+import { Component, OnInit, OnDestroy, inject } from '@angular/core';
+import { Subscription } from 'rxjs';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { AuthService } from '../services/auth';
@@ -10,16 +12,19 @@ import { AuthService } from '../services/auth';
   templateUrl: './login.component.html',
   styleUrl: './login.component.scss'
 })
-export class LoginComponent implements OnInit {
+export class LoginComponent implements OnInit, OnDestroy {
   authService = inject(AuthService);
   router = inject(Router);
   accessDeniedMessage: string | null = null;
   isRedirecting = false;
+  private availabilityCheck?: Subscription;
+  private redirectTimer?: ReturnType<typeof setTimeout>;
 
   ngOnInit(): void {
     this.accessDeniedMessage = this.authService.consumeAccessDeniedMessage();
 
     if (this.accessDeniedMessage) {
+      scrollToTopOnError();
       return;
     }
 
@@ -33,7 +38,14 @@ export class LoginComponent implements OnInit {
         const target = user.role === 'ADMIN' ? '/admin' : '/';
         this.router.navigate([target], { replaceUrl: true });
       },
-      error: () => this.redirectToKeycloak()
+      error: error => {
+        if (error?.status === 0 || error?.status >= 500 || error?.name === 'TimeoutError') {
+          this.accessDeniedMessage = 'ArenaOps is temporarily unavailable. Please try again shortly.';
+          scrollToTopOnError();
+          return;
+        }
+        this.redirectToKeycloak();
+      }
     });
   }
 
@@ -46,6 +58,26 @@ export class LoginComponent implements OnInit {
       return;
     }
     this.isRedirecting = true;
-    this.authService.loginWithKeycloak();
+    this.accessDeniedMessage = null;
+    this.availabilityCheck = this.authService.checkAvailability().subscribe({
+      next: () => {
+        this.redirectTimer = setTimeout(() => {
+          this.isRedirecting = false;
+          this.accessDeniedMessage = 'The sign-in page could not be opened. Please try again.';
+          scrollToTopOnError();
+        }, 10000);
+        this.authService.loginWithKeycloak();
+      },
+      error: () => {
+        this.isRedirecting = false;
+        this.accessDeniedMessage = 'ArenaOps is temporarily unavailable. Please try again shortly.';
+        scrollToTopOnError();
+      }
+    });
+  }
+
+  ngOnDestroy(): void {
+    this.availabilityCheck?.unsubscribe();
+    if (this.redirectTimer) clearTimeout(this.redirectTimer);
   }
 }

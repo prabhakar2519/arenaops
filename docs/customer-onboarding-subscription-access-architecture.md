@@ -235,6 +235,10 @@ Legacy-compatible endpoint:
 
 ## Registration Validation Rules
 
+Admin customer creation checks normalized owner email against existing customers (including invited/inactive customers) and application users. `CustomerEmailValidator` shares this rule between creation and the admin-only `POST /api/admin/customers/email-check` endpoint, which accepts `{ "email": "owner@example.com" }` and returns `{ "registered": true }`. The UI checks valid email input after a 400 ms pause, cancels stale checks, shows `Email already registered`, and blocks submission while checks are pending or fail. Checks can be retried. Both customer creation endpoints enforce the rule independently of the UI and return HTTP 409 with stable error code `CUSTOMER_ALREADY_EXISTS` for duplicate email. See [API error handling](api-error-handling.md) for the shared contract and email partial-success behavior.
+
+The `ux_customer_owner_email_normalized` unique index prevents simultaneous customer creations with the same case-insensitive, trimmed owner email. Its migration halts if existing duplicate owner emails require resolution; it does not delete customer data. Application user checks are preflight checks, not a database uniqueness constraint spanning both tables.
+
 Backend validation checks:
 
 - Activation code exists.
@@ -276,7 +280,7 @@ Expired active access overrides become `EXPIRED`. If payment remains due, access
 
 ## Cancellation / Reactivation Behavior
 
-Cancellation marks customer `INACTIVE`, subscription `CANCELLED`, payment `NOT_DUE`, and access `BLOCKED`. Reactivation restores customer `ACTIVE` and derives access from the subscription or active grace state.
+Cancellation marks customer `INACTIVE`, subscription `CANCELLED`, payment `NOT_DUE`, and access `BLOCKED`. Reactivation reopens a cancelled subscription as `PAYMENT_DUE`, sets payment `DUE`, revokes any remaining grace, and restores customer `ACTIVE` with access `BLOCKED`. Admins can then record payment or grant a new grace period. The existing `ACTIVE` + `CANCELLED` combination is also eligible for this recovery. Original trial dates and cancellation history are retained; no second trial starts. Reactivation of a suspended customer derives access from the unexpired subscription or active grace state.
 
 ## Audit Events
 
