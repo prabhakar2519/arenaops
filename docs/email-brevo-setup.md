@@ -1,21 +1,26 @@
 # Local Brevo email
 
-The backend sends invitations through Brevo SMTP when `app.email.enabled` is true.
-The existing invitation creation and resend actions use this transport. SMTP errors
-record an INVITATION_EMAIL_FAILED audit event; disabled delivery no longer reports success.
+Invitation creation and resend use Brevo SMTP when `app.email.enabled` is true. SMTP errors record an INVITATION_EMAIL_FAILED audit event; disabled delivery does not report success.
 
-Local settings are in `arena-core/application-mail-local.yaml` (ignored by Git).
-Start from the module directory so Spring imports that file:
+Local SMTP credentials and the Keycloak client secret belong in the ignored repository-root `.env`. The `dev` profile loads it automatically using Spring's Java properties reader; do not surround values with shell quotes or prefix them with `export`.
+
+Set these entries locally without putting real credentials in Git:
+
+```properties
+BREVO_SMTP_USERNAME=<local-smtp-login>
+BREVO_SMTP_PASSWORD=<local-smtp-key>
+KEYCLOAK_BFF_SECRET=<local-keycloak-client-secret>
+ARENAOPS_MAIL_ENABLED=true
+ARENAOPS_FRONTEND_URL=http://localhost:4200
+```
+
+From repository root:
 
 ```sh
 cd arena-core
-mvn spring-boot:run
+mvn spring-boot:run -Dspring-boot.run.profiles=dev
 ```
 
-Restart an existing backend after changing settings. The local file enables mail;
-the source configuration defaults to disabled. Environment variables override the
-SMTP defaults. Set `ARENAOPS_FRONTEND_URL` to the frontend URL recipients can reach.
-The invitation links to `/register`, the activation route in this application.
+Exported environment variables override file values. Restart core after editing `.env`. Set `ARENAOPS_FRONTEND_URL` to the address recipients can reach; invitation links use `/register`.
 
-An SMTP acceptance is not confirmation of inbox delivery. No live test email is
-sent by the automated tests.
+Production uses GitHub Environment runtime secrets and does not load this local file. An SMTP acceptance is not confirmation of inbox delivery; automated tests do not send a live email.

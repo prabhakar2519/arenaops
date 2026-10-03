@@ -4,15 +4,15 @@ ArenaOps consists of an Angular UI, a Spring Boot login gateway, and a Spring Bo
 
 ## Local development
 
-Provision local PostgreSQL and Keycloak from the infrastructure repository, copy `.env.example` to `.env`, then start the services:
+Provision local PostgreSQL and Keycloak from the infrastructure repository. Copy `.env.example` to the repository-root `.env`, fill in your local credentials and run `chmod 600 .env`. Both services load this ignored file automatically when the `dev` profile is active; exported environment variables take precedence. Use Java properties syntax (no `export` and no quotes around values), and escape literal backslashes as `\\`. Then start the services in separate terminals:
 
 ```bash
 cd arena-core && mvn spring-boot:run -Dspring-boot.run.profiles=dev
-cd arena-login && mvn spring-boot:run
+cd arena-login && mvn spring-boot:run -Dspring-boot.run.profiles=dev
 cd arena-ui && npm ci && npm run start:dev
 ```
 
-The `dev` profile means local developer overrides. There is no `de` profile.
+The `dev` profile means local developer overrides. There is no `de` profile. Production does not import the local `.env`; it receives runtime configuration through the GitHub Environment deployment workflow. Restart a service after editing `.env`.
 
 ## Delivery
 

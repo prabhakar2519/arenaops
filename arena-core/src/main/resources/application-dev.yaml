@@ -1,5 +1,7 @@
 # Development-only overrides. Common settings remain in application.yaml.
 spring:
+  config:
+    import: "optional:file:../.env[.properties],optional:file:./.env[.properties]"
   datasource:
     url: jdbc:postgresql://${ARENA_DB_HOST:localhost}:5432/${ARENA_DB_NAME:arena}
   mail:
