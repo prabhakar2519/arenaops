@@ -5,7 +5,7 @@ spring:
   application:
     name: arena-core
   datasource:
-    url: jdbc:postgresql://${ARENA_DB_HOST:localhost}:5432/${ARENA_DB_NAME:arena}
+    url: jdbc:postgresql://${ARENA_DB_HOST:localhost}:5432/${ARENA_DB_NAME}
     username: ${ARENA_DB_USERNAME}
     password: ${ARENA_DB_PASSWORD}
   jpa:
@@ -13,10 +13,12 @@ spring:
       ddl-auto: none
     properties:
       hibernate:
-        default_schema: ${ARENA_DB_SCHEMA:arena}
+        default_schema: ${ARENA_DB_SCHEMA}
   liquibase:
     change-log: classpath:db/changelog/db.changelog-master.xml
-    default-schema: ${ARENA_DB_SCHEMA:arena}
+    default-schema: ${ARENA_DB_SCHEMA}
+    parameters:
+      ARENA_DB_SCHEMA: ${ARENA_DB_SCHEMA}
   mail:
     host: ${BREVO_SMTP_HOST:smtp-relay.brevo.com}
     port: ${BREVO_SMTP_PORT:587}

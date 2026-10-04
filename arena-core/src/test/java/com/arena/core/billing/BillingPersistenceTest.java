@@ -24,10 +24,10 @@ import static com.arena.core.billing.BillingTypes.*;
 /** Opt-in real PostgreSQL tests exercise the complete Liquibase chain and transactional service. */
 @DataJpaTest
 @AutoConfigureTestDatabase(replace=AutoConfigureTestDatabase.Replace.NONE)
-@Import({BillingService.class,BillingPricing.class,PaymentGatewayConfiguration.class,AdminAuthorizationService.class})
+@Import({com.arena.core.config.DatabaseSchemaConfiguration.class,BillingService.class,BillingPricing.class,PaymentGatewayConfiguration.class,AdminAuthorizationService.class})
 @TestPropertySource(properties={"spring.datasource.url=${ARENA_BILLING_DB_URL}",
     "spring.datasource.username=${ARENA_BILLING_DB_USER:arena}", "spring.datasource.password=${ARENA_BILLING_DB_PASSWORD:arena}",
-    "spring.jpa.hibernate.ddl-auto=validate", "spring.profiles.active=local", "spring.liquibase.default-schema=public",
+    "spring.jpa.hibernate.ddl-auto=validate", "spring.profiles.active=local", "ARENA_DB_SCHEMA=arena_sit",
     "spring.jpa.show-sql=false", "spring.mail.username=", "spring.mail.password="})
 @EnabledIfEnvironmentVariable(named="ARENA_BILLING_DB_URL",matches=".+")
 class BillingPersistenceTest {

@@ -8,7 +8,7 @@ import shlex
 import stat
 import sys
 
-REQUIRED = ('ARENA_DB_NAME', 'ARENA_DB_USERNAME', 'ARENA_DB_PASSWORD', 'KC_BFF_CLIENT_SECRET')
+REQUIRED = ('ARENA_DB_SCHEMA', 'ARENA_DB_NAME', 'ARENA_DB_USERNAME', 'ARENA_DB_PASSWORD', 'KC_BFF_CLIENT_SECRET')
 OPTIONAL_DEFAULTS = {
     'APP_ADMIN_USERNAMES': '', 'ARENAOPS_MAIL_ENABLED': 'false',
     'BREVO_SMTP_HOST': 'smtp-relay.brevo.com', 'BREVO_SMTP_PORT': '587',
@@ -18,6 +18,8 @@ OPTIONAL_DEFAULTS = {
     'ARENAOPS_BILLING_TAX_RATE': '0.18',
 }
 ENVIRONMENTS = {'sit': ('arena-sit', 'https://sit.arenaops.in'), 'prod': ('arena', 'https://arenaops.in')}
+
+SCHEMAS = {'sit': 'arena_sit', 'prod': 'arena'}
 
 class ConfigError(ValueError):
     pass
@@ -46,19 +48,21 @@ def configuration(values):
     if environment not in ENVIRONMENTS:
         raise ConfigError('Application deployment supports only sit or prod')
     for key in REQUIRED + ('IMAGE_REPOSITORY', 'IMAGE_TAG'):
-        if not values.get(key):
+        if not values.get(key) or not values[key].strip():
             raise ConfigError(key + ' is required')
     if not re.fullmatch(r'ghcr\.io/[a-z0-9][a-z0-9._/-]*', values['IMAGE_REPOSITORY']):
         raise ConfigError('IMAGE_REPOSITORY must be a GHCR repository path')
     if not re.fullmatch(r'(v[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?|sha-[0-9a-f]{40})', values['IMAGE_TAG']):
         raise ConfigError('IMAGE_TAG must be a reviewed release version or full commit SHA tag')
+    if values['ARENA_DB_SCHEMA'] != SCHEMAS[environment]:
+        raise ConfigError('ARENA_DB_SCHEMA must be ' + SCHEMAS[environment] + ' for ' + environment)
     realm, origin = ENVIRONMENTS[environment]
     common = {key: values[key] for key in REQUIRED}
     common.update(ARENA_ENV=environment, KC_REALM=realm, KC_BASE_URL='http://' + environment + '-keycloak:8080/auth',
                   KC_AUTH_URL=origin + '/auth', KC_JWK_SET_URI='http://' + environment + '-keycloak:8080/auth/realms/' + realm + '/protocol/openid-connect/certs',
                   KC_ISSUER_URI=origin + '/auth/realms/' + realm, APP_ADMIN_USERNAMES=values.get('APP_ADMIN_USERNAMES', ''))
     core = dict(common, **{key: values.get(key) or default for key, default in OPTIONAL_DEFAULTS.items()})
-    core.update(ARENA_DB_HOST=environment + '-postgres', ARENA_DB_SCHEMA='arena', ARENAOPS_FRONTEND_URL=origin, APP_BASE_URL=origin)
+    core.update(ARENA_DB_HOST=environment + '-postgres', ARENAOPS_FRONTEND_URL=origin, APP_BASE_URL=origin)
     if core['ARENAOPS_MAIL_ENABLED'] not in ('true', 'false'):
         raise ConfigError('ARENAOPS_MAIL_ENABLED must be true or false')
     if core['ARENAOPS_MAIL_ENABLED'] == 'true':
