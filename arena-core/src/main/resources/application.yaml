@@ -6,7 +6,7 @@ spring:
     name: arena-core
   datasource:
     url: jdbc:postgresql://${ARENA_DB_HOST:localhost}:5432/${ARENA_DB_NAME:arena}
-    username: ${ARENA_DB_USERNAME:arena}
+    username: ${ARENA_DB_USERNAME}
     password: ${ARENA_DB_PASSWORD}
   jpa:
     hibernate:
@@ -36,17 +36,18 @@ spring:
     oauth2:
       resourceserver:
         jwt:
-          jwk-set-uri: ${KC_JWK_SET_URI:http://localhost:9091/auth/realms/arena/protocol/openid-connect/certs}
+          jwk-set-uri: ${KC_JWK_SET_URI:${KC_BASE_URL:http://localhost:9091/auth}/realms/${keycloak-admin.realm}/protocol/openid-connect/certs}
+          issuer-uri: ${KC_ISSUER_URI:${KC_AUTH_URL:http://localhost:9091/auth}/realms/${keycloak-admin.realm}}
 
 keycloak-admin:
-  server-url: ${KEYCLOAK_SERVER_URL:http://localhost:9091/auth}
-  realm: arena
+  server-url: ${KC_BASE_URL:http://localhost:9091/auth}
+  realm: ${KC_REALM:arena-dev}
   client-id: arena-bff
-  client-secret: ${KEYCLOAK_BFF_SECRET}
+  client-secret: ${KC_BFF_CLIENT_SECRET}
 
 app:
   admin:
-    usernames: ${APP_ADMIN_USERNAMES:arena_admin,arenaops_admin}
+    usernames: ${APP_ADMIN_USERNAMES:}
   email:
     enabled: ${ARENAOPS_MAIL_ENABLED:true}
     from: ${ARENAOPS_MAIL_FROM:noreply@arenaops.in}
@@ -55,6 +56,13 @@ app:
     frontend-url: ${ARENAOPS_FRONTEND_URL:${APP_BASE_URL:http://localhost:4200}}
 
 management:
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      group:
+        readiness:
+          include: readinessState,db
   endpoints:
     web:
       exposure:

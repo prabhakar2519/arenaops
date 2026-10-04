@@ -7,7 +7,7 @@
     "start": "ng serve",
     "start:dev": "ng serve --configuration development --host 0.0.0.0 --port 4200",
     "build": "ng build",
-    "test": "node scripts/test-errors.mjs && node scripts/test-billing.mjs"
+    "test": "node scripts/test-errors.mjs && node scripts/test-billing.mjs && node scripts/test-auth.mjs"
   },
   "dependencies": {
     "@angular/common": "^20.3.0",

@@ -45,7 +45,7 @@ class CoreUnavailableLoginTest {
     RestTemplate core = mock(RestTemplate.class);
     TokenController controller = new TokenController(mock(TokenService.class), core);
     ReflectionTestUtils.setField(controller, "coreUrl", "http://localhost:7701");
-    when(core.getForEntity("http://localhost:7701/api/health", byte[].class))
+    when(core.getForEntity("http://localhost:7701/actuator/health/readiness", byte[].class))
         .thenReturn(ResponseEntity.ok(new byte[0]))
         .thenThrow(new ResourceAccessException("Connection refused"));
     assertEquals(HttpStatus.OK, controller.readiness(new org.springframework.mock.web.MockHttpServletRequest("GET", "/api/readiness")).getStatusCode());
@@ -58,12 +58,12 @@ class CoreUnavailableLoginTest {
     TokenService tokens = mock(TokenService.class);
     TokenController controller = new TokenController(tokens, core);
     ReflectionTestUtils.setField(controller, "coreUrl", "http://localhost:7701");
-    when(tokens.exchangeCodeForToken("test-code", "http://localhost/login/callback"))
+    when(tokens.exchangeCodeForToken("test-code", "http://localhost/login/callback", "v".repeat(43)))
         .thenReturn(com.arena.login.model.TokenResponse.builder().accessToken("test-token").build());
     when(core.exchange(anyString(), eq(HttpMethod.GET), any(HttpEntity.class), eq(byte[].class)))
         .thenThrow(new ResourceAccessException("Connection refused"));
     MockHttpSession session = new MockHttpSession();
-    var request = new com.arena.login.model.TokenRequest("test-code", "http://localhost/login/callback");
+    var request = new com.arena.login.model.TokenRequest("test-code", "http://localhost/login/callback", "v".repeat(43));
     assertEquals(HttpStatus.SERVICE_UNAVAILABLE, controller.validateToken(request, session, new org.springframework.mock.web.MockHttpServletRequest("POST", "/api/token")).getStatusCode());
     assertTrue(session.isInvalid());
   }

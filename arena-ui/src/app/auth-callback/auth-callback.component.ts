@@ -84,7 +84,7 @@ export class AuthCallbackComponent implements OnInit {
         console.log('Authorization code received, exchanging for token...');
 
         // Exchange the code for a token via the backend
-        this.authService.exchangeCodeForToken(code).subscribe({
+        this.authService.exchangeCodeForToken(code, params['state']).subscribe({
           next: (user) => {
             console.log('Authentication successful', user);
             this.handleNavigation(user);

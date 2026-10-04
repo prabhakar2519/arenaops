@@ -18,7 +18,7 @@ class TokenServiceErrorTest {
     ReflectionTestUtils.setField(service, "clientId", "test");
     var server = MockRestServiceServer.bindTo((RestTemplate) ReflectionTestUtils.getField(service, "restTemplate")).build();
     server.expect(anything()).andRespond(withBadRequest().body("client_secret=private-token"));
-    var denied = assertThrows(ArenaOpsException.class, () -> service.exchangeCodeForToken("code", "http://ui.test/callback"));
+    var denied = assertThrows(ArenaOpsException.class, () -> service.exchangeCodeForToken("code", "http://ui.test/callback", "v".repeat(43)));
     assertEquals(ErrorCode.AUTHENTICATION_FAILED, denied.getErrorCode());
     assertFalse(denied.getMessage().contains("private-token"));
     server.verify();

@@ -33,7 +33,8 @@ class SecurityErrorContractTest {
     try (var context = new AnnotationConfigWebApplicationContext()) {
       context.setServletContext(new MockServletContext());
       context.getEnvironment().getPropertySources().addFirst(new MapPropertySource("test",
-          java.util.Map.of("spring.security.oauth2.resourceserver.jwt.jwk-set-uri", "http://localhost/test-jwks")));
+          java.util.Map.of("spring.security.oauth2.resourceserver.jwt.jwk-set-uri", "http://localhost/test-jwks",
+              "spring.security.oauth2.resourceserver.jwt.issuer-uri", "http://localhost/realms/arena-dev")));
       context.register(Beans.class, SecurityConfig.class);
       context.refresh();
       var mvc = MockMvcBuilders.webAppContextSetup(context)

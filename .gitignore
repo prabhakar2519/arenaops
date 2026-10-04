@@ -19,3 +19,9 @@ implementation_plan/
 
 # Personal editor workspaces are local metadata.
 *.code-workspace
+
+# Python deployment validation caches.
+__pycache__/
+
+# Documentation is maintained locally only.
+/docs/

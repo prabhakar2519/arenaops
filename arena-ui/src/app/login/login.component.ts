@@ -66,7 +66,11 @@ export class LoginComponent implements OnInit, OnDestroy {
           this.accessDeniedMessage = 'The sign-in page could not be opened. Please try again.';
           scrollToTopOnError();
         }, 10000);
-        this.authService.loginWithKeycloak();
+        void this.authService.loginWithKeycloak().catch(() => {
+          this.isRedirecting = false;
+          this.accessDeniedMessage = 'The sign-in page could not be opened. Please try again.';
+          scrollToTopOnError();
+        });
       },
       error: () => {
         this.isRedirecting = false;

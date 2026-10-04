@@ -15,7 +15,7 @@ public class AdminAuthorizationService {
 
   private final Set<String> adminUsernames;
 
-  public AdminAuthorizationService(@Value("${app.admin.usernames:arena_admin}") String adminUsernamesConfig) {
+  public AdminAuthorizationService(@Value("${app.admin.usernames:}") String adminUsernamesConfig) {
     this.adminUsernames = Arrays.stream(adminUsernamesConfig.split(","))
         .map(String::trim)
         .filter(value -> !value.isBlank())

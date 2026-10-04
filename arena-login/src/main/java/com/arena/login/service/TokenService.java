@@ -40,7 +40,7 @@ public class TokenService {
     @Value("${spring.security.oauth2.client.registration.keycloak.redirect-uri}")
     private String redirectUri;
 
-    @Value("${app.admin.usernames:arena_admin}")
+    @Value("${app.admin.usernames:}")
     private String adminUsernamesConfig;
 
     private final RestTemplate restTemplate = identityClient();
@@ -53,11 +53,10 @@ public class TokenService {
     }
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    public TokenResponse exchangeCodeForToken(String code) {
-        return exchangeCodeForToken(code, redirectUri);
-    }
-
-    public TokenResponse exchangeCodeForToken(String code, String requestRedirectUri) {
+    public TokenResponse exchangeCodeForToken(String code, String requestRedirectUri, String codeVerifier) {
+        if (codeVerifier == null || !codeVerifier.matches("[A-Za-z0-9._~-]{43,128}")) {
+            throw new ArenaOpsException(ErrorCode.AUTHENTICATION_FAILED);
+        }
         String tokenUrl = serverUrl + "/realms/" + realm + "/protocol/openid-connect/token";
         String resolvedRedirectUri = requestRedirectUri == null || requestRedirectUri.isBlank()
                 ? redirectUri
@@ -73,6 +72,7 @@ public class TokenService {
         body.add("grant_type", "authorization_code");
         body.add("client_id", clientId);
         body.add("code", code);
+        body.add("code_verifier", codeVerifier);
         body.add("redirect_uri", resolvedRedirectUri);
 
         HttpEntity<MultiValueMap<String, String>> request = new HttpEntity<>(body, headers);

@@ -12,10 +12,7 @@ import org.springframework.web.util.UriComponentsBuilder;
 @RestController
 public class HomeController {
 
-  @Value("${arena.keycloak.auth-url:http://localhost:9091/auth}")
-  private String keycloakAuthUrl;
-
-  @Value("${arena.app.base-url:http://localhost:4200}")
+  @Value("${APP_BASE_URL:http://localhost:4200}")
   private String appBaseUrl;
 
   @GetMapping("/")
@@ -30,15 +27,8 @@ public class HomeController {
 
   @GetMapping("/register")
   public ResponseEntity<Void> register() {
-    String location = UriComponentsBuilder
-        .fromUriString(keycloakAuthUrl)
-        .path("/realms/arena/protocol/openid-connect/registrations")
-        .queryParam("client_id", "arena-login")
-        .queryParam("response_type", "code")
-        .queryParam("scope", "openid profile email")
-        .queryParam("redirect_uri", appBaseUrl)
-        .build()
-        .toUriString();
+    // Registration is an ArenaOps UI flow. The browser owns PKCE/state for later sign-in.
+    String location = UriComponentsBuilder.fromUriString(appBaseUrl).path("/register").build().toUriString();
     return ResponseEntity.status(302).header("Location", location).build();
   }
 }

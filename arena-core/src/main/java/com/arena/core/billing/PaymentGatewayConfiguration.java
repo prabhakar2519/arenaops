@@ -15,7 +15,7 @@ public class PaymentGatewayConfiguration {
   public PaymentGateway paymentGateway(Environment environment) {
     var profiles = Arrays.asList(environment.getActiveProfiles());
     boolean enabled = profiles.stream().anyMatch(p -> p.equals("dev") || p.equals("local"))
-        && profiles.stream().noneMatch(p -> p.equalsIgnoreCase("prod") || p.equalsIgnoreCase("production"));
+        && profiles.stream().noneMatch(p -> p.equalsIgnoreCase("sit") || p.equalsIgnoreCase("prod") || p.equalsIgnoreCase("production"));
     return enabled ? new MockPaymentGateway() : new UnavailableGateway();
   }
   /** Production placeholder until a verified real provider is installed. */

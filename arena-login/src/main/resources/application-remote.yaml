@@ -1,0 +1,31 @@
+server:
+  servlet:
+    session:
+      cookie:
+        secure: true
+spring:
+  security:
+    oauth2:
+      client:
+        registration:
+          keycloak:
+            redirect-uri: "${APP_BASE_URL}/login/callback"
+        provider:
+          keycloak:
+            authorization-uri: "${KC_AUTH_URL}/realms/${keycloak-admin.realm}/protocol/openid-connect/auth"
+            token-uri: "${KC_BASE_URL}/realms/${keycloak-admin.realm}/protocol/openid-connect/token"
+            jwk-set-uri: "${KC_JWK_SET_URI}"
+            user-info-uri: "${KC_BASE_URL}/realms/${keycloak-admin.realm}/protocol/openid-connect/userinfo"
+keycloak-admin:
+  server-url: ${KC_BASE_URL}
+arena:
+  core:
+    url: ${ARENA_CORE_URL}
+app:
+  cors:
+    allowed-origins: ${APP_CORS_ALLOWED_ORIGINS}
+logging:
+  level:
+    root: INFO
+    org.springframework.security: INFO
+    org.springframework.web: INFO

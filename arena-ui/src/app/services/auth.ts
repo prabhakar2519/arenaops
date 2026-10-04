@@ -1,6 +1,8 @@
+import { environment } from '../../environments/environment';
+import { authorizationUrl, consumeVerifier } from './oidc';
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { BehaviorSubject, Observable } from 'rxjs';
+import { BehaviorSubject, Observable, defer } from 'rxjs';
 import { tap, timeout } from 'rxjs/operators';
 
 export type UserRole = 'ADMIN' | 'OWNER' | 'STAFF' | null;
@@ -133,51 +135,22 @@ export class AuthService {
     return [...new Set([...registeredSports, ...entitledSports])];
   }
 
-  private get keycloakBaseUrl(): string {
-    const { protocol, hostname, port } = window.location;
-    const isDevServer = port === '4200' || port === '4201';
-    return isDevServer ? `${protocol}//${hostname}:9091/auth` : `${window.location.origin}/auth`;
-  }
-
-  loginWithKeycloak(): void {
-    // Redirect directly to Keycloak — Spring's /oauth2/authorization/keycloak is not needed
-    // since we handle the callback ourselves in AuthCallbackComponent → POST /api/token
-    const baseUrl = window.location.origin;
-    const keycloakUrl = `${this.keycloakBaseUrl}/realms/arena/protocol/openid-connect/auth`;
-
-    // Better: use relative or figure out how to get it.
-    // For now, let's at least fix the redirect_uri to be dynamic.
-    const params = new URLSearchParams({
-      client_id: 'arena-ui',
-      redirect_uri: `${baseUrl}/login/callback`,
-      response_type: 'code',
-      scope: 'openid profile email roles'
-    });
-
-    // An account rejected by ArenaOps may still have a valid Keycloak SSO
-    // session. Require credentials once so the user can sign in with a
-    // different account instead of silently receiving the rejected account.
+  async loginWithKeycloak(): Promise<void> {
+    const url = new URL(await authorizationUrl(environment, window.location.origin, sessionStorage));
     if (sessionStorage.getItem(AuthService.FORCE_FRESH_LOGIN_KEY) === 'true') {
       sessionStorage.removeItem(AuthService.FORCE_FRESH_LOGIN_KEY);
-      params.set('prompt', 'login');
-      params.set('max_age', '0');
+      url.searchParams.set('prompt', 'login');
+      url.searchParams.set('max_age', '0');
     }
-    window.location.href = `${keycloakUrl}?${params.toString()}`;
+    window.location.href = url.toString();
   }
 
   checkAvailability(): Observable<unknown> {
     return this.http.get('/api/readiness').pipe(timeout(10000));
   }
 
-  resetPasswordWithKeycloak(): void {
-    const baseUrl = window.location.origin;
-    const resetPasswordUrl = `${this.keycloakBaseUrl}/realms/arena/login-actions/reset-credentials`;
-    const params = new URLSearchParams({
-      client_id: 'arena-ui',
-      redirect_uri: `${baseUrl}/login/callback`
-    });
-
-    window.location.href = `${resetPasswordUrl}?${params.toString()}`;
+  async resetPasswordWithKeycloak(): Promise<void> {
+    window.location.href = await authorizationUrl(environment, window.location.origin, sessionStorage, crypto, true);
   }
 
   validateSession(): Observable<User> {
@@ -198,12 +171,15 @@ export class AuthService {
     );
   }
 
-  exchangeCodeForToken(code: string): Observable<User> {
+  exchangeCodeForToken(code: string, state?: string): Observable<User> {
     const redirectUri = `${window.location.origin}/login/callback`;
 
     // Exchange the authorization code for a session on the backend
     // The backend (BFF) stores the tokens and returns only user info
-    return this.http.post<User>('/api/token', { code, redirectUri }).pipe(
+    return defer(() => {
+      const codeVerifier = consumeVerifier(state, sessionStorage);
+      return this.http.post<User>('/api/token', { code, redirectUri, codeVerifier });
+    }).pipe(
       timeout(20000),
       tap({
         next: user => {
@@ -248,7 +224,7 @@ export class AuthService {
 
     // Logout from Keycloak and redirect back to home page
     const baseUrl = window.location.origin;
-    const keycloakLogoutUrl = `${this.keycloakBaseUrl}/realms/arena/protocol/openid-connect/logout`;
+    const keycloakLogoutUrl = `${environment.keycloakBaseUrl}/realms/${environment.keycloakRealm}/protocol/openid-connect/logout`;
     const redirectUri = encodeURIComponent(`${baseUrl}/`);
 
     window.location.href = `${keycloakLogoutUrl}?client_id=arena-ui&post_logout_redirect_uri=${redirectUri}`;

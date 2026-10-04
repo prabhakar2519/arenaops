@@ -21,6 +21,9 @@ public class SecurityConfig {
     @Value("${spring.security.oauth2.resourceserver.jwt.jwk-set-uri}")
     private String jwkSetUri;
 
+    @Value("${spring.security.oauth2.resourceserver.jwt.issuer-uri}")
+    private String issuerUri;
+
     private final CustomerAccessFilter customerAccessFilter;
     private final ApiErrors apiErrors;
 
@@ -40,7 +43,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/users").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/registration/validate-invitation").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/registration/activate").permitAll()
-                        .requestMatchers("/api/health").permitAll()
+                        .requestMatchers("/api/health", "/actuator/health/readiness").permitAll()
                         // All other /api endpoints require a valid JWT
                         .requestMatchers("/api/**").authenticated()
                         // Catch-all
@@ -69,6 +72,8 @@ public class SecurityConfig {
 
     @Bean
     public JwtDecoder jwtDecoder() {
-        return NimbusJwtDecoder.withJwkSetUri(jwkSetUri).build();
+        var decoder = NimbusJwtDecoder.withJwkSetUri(jwkSetUri).build();
+        decoder.setJwtValidator(org.springframework.security.oauth2.jwt.JwtValidators.createDefaultWithIssuer(issuerUri));
+        return decoder;
     }
 }

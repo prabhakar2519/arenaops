@@ -9,7 +9,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class PaymentGatewayConfigurationTest {
   @Test void onlyExplicitLocalOrDevEnablesMock() {
-    for (String[] profiles : new String[][]{{}, {"prod"}, {"production"}, {"dev","prod"}, {"local","PRODUCTION"}}) {
+    for (String[] profiles : new String[][]{{}, {"sit"}, {"prod"}, {"production"}, {"dev","sit"}, {"dev","prod"}, {"local","PRODUCTION"}}) {
       var env = new MockEnvironment(); env.setActiveProfiles(profiles);
       var gateway = new PaymentGatewayConfiguration().paymentGateway(env);
       assertFalse(gateway.mockEnabled());

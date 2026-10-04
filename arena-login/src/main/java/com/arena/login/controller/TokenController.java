@@ -52,7 +52,7 @@ public class TokenController {
             log.info("Validating token for authorization code");
 
             // Exchange authorization code for access token with Keycloak
-            TokenResponse tokenResponse = tokenService.exchangeCodeForToken(request.getCode(), request.getRedirectUri());
+            TokenResponse tokenResponse = tokenService.exchangeCodeForToken(request.getCode(), request.getRedirectUri(), request.getCodeVerifier());
 
             UserInfo userInfo = tokenService.getUserInfoFromToken(tokenResponse.getAccessToken());
             validateCoreAccess(tokenResponse.getAccessToken());
@@ -130,7 +130,7 @@ public class TokenController {
     @GetMapping("/readiness")
     public ResponseEntity<?> readiness(HttpServletRequest request) {
         try {
-            restTemplate.getForEntity(coreUrl + "/api/health", byte[].class);
+            restTemplate.getForEntity(coreUrl + "/actuator/health/readiness", byte[].class);
             return ResponseEntity.ok(java.util.Map.of("status", "UP"));
         } catch (org.springframework.web.client.RestClientException e) {
             return ApiErrors.response(ErrorCode.SERVICE_UNAVAILABLE, request);

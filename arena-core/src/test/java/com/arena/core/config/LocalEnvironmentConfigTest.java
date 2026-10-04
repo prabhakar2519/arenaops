@@ -15,7 +15,7 @@ class LocalEnvironmentConfigTest {
 
   /** Proves module and repository-root launches find the same local settings and exported values override them. */
   @Test void devLoadsRootFileFromEitherDirectoryAndEnvironmentTakesPrecedence() throws Exception {
-    Files.writeString(directory.resolve(".env"), "ARENA_DB_PASSWORD=file-test-password\nKEYCLOAK_BFF_SECRET=file-test-secret\n");
+    Files.writeString(directory.resolve(".env"), "ARENA_DB_PASSWORD=file-test-password\nKC_BFF_CLIENT_SECRET=file-test-secret\n");
     Path module = Files.createDirectory(directory.resolve("arena-core"));
     runProbe(module, "dev", false);
     runProbe(directory, "dev", false);
@@ -23,8 +23,9 @@ class LocalEnvironmentConfigTest {
   }
 
   /** Keeps the production profile isolated from a local secret file even if one exists beside the application. */
-  @Test void prodDoesNotImportLocalEnvironmentFile() throws Exception {
-    Files.writeString(directory.resolve(".env"), "ARENA_DB_PASSWORD=file-test-password\nKEYCLOAK_BFF_SECRET=file-test-secret\n");
+  @Test void remoteProfilesDoNotImportLocalEnvironmentFile() throws Exception {
+    Files.writeString(directory.resolve(".env"), "ARENA_DB_PASSWORD=file-test-password\nKC_BFF_CLIENT_SECRET=file-test-secret\n");
+    runProbe(directory, "sit", false);
     runProbe(directory, "prod", false);
   }
 
@@ -35,7 +36,8 @@ class LocalEnvironmentConfigTest {
         "-cp", System.getProperty("java.class.path"), Probe.class.getName(), profile, Boolean.toString(override));
     builder.directory(workingDirectory.toFile()).redirectErrorStream(true).redirectOutput(output.toFile());
     builder.environment().remove("ARENA_DB_PASSWORD");
-    builder.environment().remove("KEYCLOAK_BFF_SECRET");
+    builder.environment().remove("KC_BFF_CLIENT_SECRET");
+    builder.environment().remove("KC_REALM");
     if (override) builder.environment().put("ARENA_DB_PASSWORD", "exported-test-password");
     Process process = builder.start();
     try {
@@ -55,8 +57,11 @@ class LocalEnvironmentConfigTest {
           "--spring.config.location=classpath:application.yaml", "--spring.main.web-application-type=none",
           "--spring.main.banner-mode=off", "--logging.level.root=OFF", "--logging.level.com.arena=OFF")) {
         var environment = context.getEnvironment();
-        if (profile.equals("prod")) {
-          if (environment.getProperty("ARENA_DB_PASSWORD") != null || environment.getProperty("KEYCLOAK_BFF_SECRET") != null)
+        String expectedRealm = profile.equals("prod") ? "arena" : profile.equals("sit") ? "arena-sit" : "arena-dev";
+        if (!expectedRealm.equals(environment.getProperty("keycloak-admin.realm")))
+          throw new IllegalStateException("Profile selected an incorrect realm");
+        if (profile.equals("prod") || profile.equals("sit")) {
+          if (environment.getProperty("ARENA_DB_PASSWORD") != null || environment.getProperty("KC_BFF_CLIENT_SECRET") != null)
             throw new IllegalStateException("Production unexpectedly imported local configuration");
         } else {
           String expected = Boolean.parseBoolean(arguments[1]) ? "exported-test-password" : "file-test-password";

@@ -3,4 +3,4 @@ spring:
   config:
     import: classpath:application-remote.yaml
 keycloak-admin:
-  realm: ${KC_REALM:arena}
+  realm: ${KC_REALM:arena-sit}

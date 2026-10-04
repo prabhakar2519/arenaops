@@ -14,7 +14,7 @@ app:
     from: ${ARENAOPS_MAIL_FROM:noreply@arenaops.in}
     from-name: ${ARENAOPS_MAIL_FROM_NAME:ArenaOps}
     reply-to: ${ARENAOPS_MAIL_REPLY_TO:}
-    frontend-url: ${ARENAOPS_FRONTEND_URL:${APP_BASE_URL:http://192.168.0.219:4200}}
+    frontend-url: ${ARENAOPS_FRONTEND_URL:${APP_BASE_URL:http://localhost:4200}}
 
 
 logging:
