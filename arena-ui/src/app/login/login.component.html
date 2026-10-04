@@ -1,0 +1,16 @@
+<div class="login-container">
+    <div class="login-card">
+        <h2>{{ accessDeniedMessage ? 'Unable to complete sign in' : 'Redirecting to Sign In' }}</h2>
+        <p class="subtitle">
+            {{ accessDeniedMessage ? 'Please try again when the service is available.' : 'Checking availability and opening the secure login page...' }}
+        </p>
+
+        <div *ngIf="accessDeniedMessage" class="access-denied" role="alert">
+            {{ accessDeniedMessage }}
+        </div>
+
+        <button type="button" class="login-action" (click)="loginWithKeycloak()" [disabled]="isRedirecting">
+            {{ isRedirecting ? 'Opening...' : 'Continue to Sign In' }}
+        </button>
+    </div>
+</div>

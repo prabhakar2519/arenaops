@@ -1,0 +1,24 @@
+# Shared SIT/PROD configuration; deployment derives URLs from ARENA_ENV.
+spring:
+  datasource:
+    url: jdbc:postgresql://${ARENA_DB_HOST}:5432/${ARENA_DB_NAME}
+    username: ${ARENA_DB_USERNAME}
+    password: ${ARENA_DB_PASSWORD}
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: ${KC_JWK_SET_URI}
+          issuer-uri: ${KC_ISSUER_URI}
+keycloak-admin:
+  server-url: ${KC_BASE_URL}
+  client-secret: ${KC_BFF_CLIENT_SECRET}
+app:
+  email:
+    enabled: ${ARENAOPS_MAIL_ENABLED:false}
+    from: ${ARENAOPS_MAIL_FROM:}
+    frontend-url: ${ARENAOPS_FRONTEND_URL}
+logging:
+  level:
+    root: INFO
+    com.arena: INFO

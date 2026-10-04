@@ -1,0 +1,27 @@
+.DS_Store
+.env
+.env.*
+!.env.example
+.infra-bootstrap-success
+target/
+node_modules/
+dist/
+.angular/
+*.log
+/arena-core/application-mail-local.yaml
+/arena-core/src/main/resources/application-mail-local.yaml
+/arenaops/
+
+.idea/
+**/.idea/
+
+implementation_plan/
+
+# Personal editor workspaces are local metadata.
+*.code-workspace
+
+# Python deployment validation caches.
+__pycache__/
+
+# Documentation is maintained locally only.
+/docs/

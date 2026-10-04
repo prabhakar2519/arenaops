@@ -1,0 +1,190 @@
+<div class="admin-page">
+  <section class="admin-hero">
+    <div>
+      <p>Admin Console</p>
+      <h1>Customer onboarding and billing control</h1>
+    </div>
+    <span class="admin-state" *ngIf="isLoading">Loading</span>
+  </section>
+
+  <div class="message" *ngIf="message" role="status" [class.success]="severity === 'success'"
+    [class.warning]="severity === 'warning'" [class.error]="severity === 'error'">
+    {{ message }}
+  </div>
+  <div *ngFor="let field of fieldErrors | keyvalue" class="field-error" role="alert">
+    {{ field.key }}: {{ field.value }}
+  </div>
+
+  <section class="metric-grid" *ngIf="dashboard">
+    <article><span>Total Customers</span><strong>{{ dashboard.totalCustomers }}</strong></article>
+    <article><span>Active</span><strong>{{ dashboard.activeCustomers }}</strong></article>
+    <article><span>Invited</span><strong>{{ dashboard.pendingRegistration }}</strong></article>
+    <article><span>Payment Due</span><strong>{{ dashboard.paymentDue }}</strong></article>
+    <article><span>Blocked</span><strong>{{ dashboard.accessBlocked }}</strong></article>
+    <article><span>MRR</span><strong>₹{{ dashboard.monthlyRecurringRevenue || 0 }}</strong></article>
+  </section>
+
+  <section class="admin-layout">
+    <form class="admin-form" [formGroup]="invitationForm" (ngSubmit)="createInvitation()">
+      <div class="form-heading">
+        <p>New Customer</p>
+        <h2>Create Invitation</h2>
+      </div>
+
+      <label>
+        Organization / Academy Name *
+        <input formControlName="customerName" placeholder="V111111 Sports Academy" required>
+      </label>
+
+      <div class="form-row">
+        <label>
+          Owner Name *
+          <input formControlName="ownerName" placeholder="Owner full name" required>
+        </label>
+        <label>
+          Owner Phone *
+          <input type="tel" formControlName="ownerPhone" placeholder="Phone number" required>
+        </label>
+      </div>
+
+      <label>
+        Owner Email *
+        <input type="email" formControlName="ownerEmail" placeholder="owner@example.com" required
+          aria-describedby="owner-email-feedback">
+        <span id="owner-email-feedback" aria-live="polite">
+          <small *ngIf="invitationForm.controls.ownerEmail.pending">Checking email...</small>
+          <small class="field-error" *ngIf="invitationForm.controls.ownerEmail.hasError('emailRegistered')">Email already registered</small>
+          <small class="field-error" *ngIf="invitationForm.controls.ownerEmail.hasError('emailCheckFailed')">
+            Could not check email.
+            <button type="button" (click)="invitationForm.controls.ownerEmail.updateValueAndValidity()">Retry</button>
+          </small>
+        </span>
+      </label>
+
+      <div class="form-row">
+        <label>
+          Plan *
+          <select formControlName="customerPlan" required>
+            <option *ngFor="let option of planOptions" [value]="option.value">{{ option.label }}</option>
+          </select>
+        </label>
+        <label>
+          Subscription
+          <select formControlName="subscriptionType">
+            <option value="MONTHLY">Monthly</option>
+            <option value="YEARLY">Yearly</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="form-row">
+        <label>
+          Trial Duration *
+          <input type="number" min="0" formControlName="trialDays" required>
+        </label>
+        <label>
+          Invitation Expiry *
+          <input type="number" min="1" formControlName="invitationExpiryDays" required>
+        </label>
+      </div>
+
+      <label>
+        Billing Amount
+        <input type="number" min="0" formControlName="billingAmount">
+      </label>
+
+      <label>
+        Notes
+        <textarea formControlName="notes" placeholder="Billing or onboarding notes"></textarea>
+      </label>
+
+      <button type="submit" [disabled]="invitationForm.invalid || invitationForm.pending || isCreating">
+        {{ isCreating ? 'Creating...' : 'Create Invitation' }}
+      </button>
+    </form>
+
+    <section class="customer-panel">
+      <div class="panel-heading">
+        <p>Customers</p>
+        <h2>Lifecycle Overview</h2>
+      </div>
+
+      <article class="customer-card" *ngFor="let customer of customers">
+        <div class="customer-main">
+          <div>
+            <p class="customer-name">{{ customer.organizationName }}</p>
+            <span>{{ customer.primaryContactName || customer.primaryContactEmail }} · {{ planLabel(customer) }}</span>
+          </div>
+        </div>
+
+        <div class="status-strip">
+          <span>Customer <strong>{{ customer.customerStatus || '-' }}</strong></span>
+          <span>Invitation <strong>{{ customer.invitationStatus || '-' }}</strong></span>
+          <span>Subscription <strong>{{ customer.subscriptionStatus || '-' }}</strong></span>
+          <span>Payment <strong>{{ customer.paymentStatus || '-' }}</strong></span>
+          <span>Access <strong>{{ customer.accessStatus || '-' }}</strong></span>
+          <span *ngIf="customer.graceStatus">Grace <strong>{{ customer.graceStatus }}</strong></span>
+        </div>
+
+        <div class="customer-grid">
+          <div><span>Owner Email</span><strong>{{ customer.primaryContactEmail || '-' }}</strong></div>
+          <div><span>Owner Phone</span><strong>{{ customer.primaryContactPhone || '-' }}</strong></div>
+          <div><span>Trial Duration</span><strong>{{ customer.trialDurationDays || 0 }} days</strong></div>
+          <div><span>Trial Started</span><strong>{{ formatDate(customer.trialStartedAt) }}</strong></div>
+          <div><span>Trial Ends</span><strong>{{ formatDate(customer.trialEndsAtDateTime) }}</strong></div>
+          <div><span>Invitation Expires</span><strong>{{ formatDate(customer.onboardingCodeExpiresAt) }}</strong></div>
+          <div><span>Next Billing</span><strong>{{ formatDate(customer.nextBillingDate) }}</strong></div>
+          <div><span>Grace Until</span><strong>{{ formatDate(customer.graceEndsAt) }}</strong></div>
+          <div><span>Billing</span><strong>₹{{ customer.billingAmount }} / {{ customer.subscriptionType }}</strong></div>
+        </div>
+
+        <div class="customer-actions">
+          <button type="button" (click)="resendInvitation(customer)" [disabled]="!canResend(customer)">Resend Invitation</button>
+          <button type="button" (click)="revokeInvitation(customer)" [disabled]="!canRevoke(customer)">Revoke Invitation</button>
+          <button type="button" (click)="openAction(customer, 'grace')" [disabled]="!canGrantGrace(customer)">Grant Grace</button>
+          <button type="button" (click)="openAction(customer, 'payment')" [disabled]="!canRecordPayment(customer)">Record Payment</button>
+          <button type="button" (click)="openAction(customer, 'suspend')" [disabled]="!canSuspend(customer)">Suspend</button>
+          <button type="button" (click)="openAction(customer, 'reactivate')" [disabled]="!canReactivate(customer)">Reactivate</button>
+          <button type="button" class="danger" (click)="openAction(customer, 'cancel')">Cancel</button>
+        </div>
+      </article>
+    </section>
+  </section>
+
+  <div class="modal-backdrop" *ngIf="activeActionCustomer" (click)="closeAction()">
+    <section class="renewal-modal" role="dialog" aria-modal="true" (click)="$event.stopPropagation()">
+      <div class="modal-heading">
+        <div>
+          <p>{{ activeAction }}</p>
+          <h2>{{ activeActionCustomer.organizationName }}</h2>
+        </div>
+        <button type="button" class="modal-close" (click)="closeAction()" aria-label="Close">×</button>
+      </div>
+
+      <label *ngIf="activeAction === 'grace'">
+        Grace ends at
+        <input type="datetime-local" [(ngModel)]="graceEndsAt">
+      </label>
+
+      <label *ngIf="activeAction === 'payment'">
+        Amount
+        <input type="number" min="0" [(ngModel)]="paymentAmount">
+      </label>
+
+      <label *ngIf="activeAction === 'payment'">
+        Payment Reference
+        <input [(ngModel)]="paymentReference" placeholder="Receipt or UPI reference">
+      </label>
+
+      <label>
+        Reason / Notes
+        <textarea [(ngModel)]="actionReason"></textarea>
+      </label>
+
+      <div class="modal-actions">
+        <button type="button" (click)="closeAction()">Cancel</button>
+        <button type="button" (click)="confirmAction()">Confirm</button>
+      </div>
+    </section>
+  </div>
+</div>

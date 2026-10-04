@@ -1,0 +1,4 @@
+target
+application-mail-local.yaml
+src/main/resources/application-mail-local.yaml
+*.log

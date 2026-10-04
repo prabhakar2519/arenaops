@@ -1,0 +1,10 @@
+<div class="app-container">
+  <app-header></app-header>
+  <main class="main-content">
+    <div class="api-error-banner" *ngIf="notifications.error() as failure" role="alert">
+      <span>{{ failure.description }}</span>
+      <button type="button" (click)="notifications.dismiss()" aria-label="Dismiss error">Dismiss</button>
+    </div>
+    <router-outlet></router-outlet>
+  </main>
+</div>

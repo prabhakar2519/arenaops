@@ -1,0 +1,4 @@
+# Local runtime credentials are shared with core through the ignored repository-root .env.
+spring:
+  config:
+    import: "optional:file:../.env[.properties],optional:file:./.env[.properties]"

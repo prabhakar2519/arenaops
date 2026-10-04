@@ -1,0 +1,6 @@
+# Remote environments share strict settings and never import local .env files.
+spring:
+  config:
+    import: classpath:application-remote.yaml
+keycloak-admin:
+  realm: ${KC_REALM:arena-sit}

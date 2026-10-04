@@ -1,0 +1,69 @@
+server:
+  port: 7701
+
+spring:
+  application:
+    name: arena-core
+  datasource:
+    url: jdbc:postgresql://${ARENA_DB_HOST:localhost}:5432/${ARENA_DB_NAME:arena}
+    username: ${ARENA_DB_USERNAME}
+    password: ${ARENA_DB_PASSWORD}
+  jpa:
+    hibernate:
+      ddl-auto: none
+    properties:
+      hibernate:
+        default_schema: ${ARENA_DB_SCHEMA:arena}
+  liquibase:
+    change-log: classpath:db/changelog/db.changelog-master.xml
+    default-schema: ${ARENA_DB_SCHEMA:arena}
+  mail:
+    host: ${BREVO_SMTP_HOST:smtp-relay.brevo.com}
+    port: ${BREVO_SMTP_PORT:587}
+    username: ${BREVO_SMTP_USERNAME:}
+    password: ${BREVO_SMTP_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: ${SMTP_AUTH:true}
+          starttls:
+            enable: ${SMTP_STARTTLS_ENABLE:true}
+            required: ${SMTP_STARTTLS_REQUIRED:true}
+          connectiontimeout: ${SMTP_CONNECTION_TIMEOUT_MS:10000}
+          timeout: ${SMTP_TIMEOUT_MS:10000}
+          writetimeout: ${SMTP_WRITE_TIMEOUT_MS:10000}
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: ${KC_JWK_SET_URI:${KC_BASE_URL:http://localhost:9091/auth}/realms/${keycloak-admin.realm}/protocol/openid-connect/certs}
+          issuer-uri: ${KC_ISSUER_URI:${KC_AUTH_URL:http://localhost:9091/auth}/realms/${keycloak-admin.realm}}
+
+keycloak-admin:
+  server-url: ${KC_BASE_URL:http://localhost:9091/auth}
+  realm: ${KC_REALM:arena-dev}
+  client-id: arena-bff
+  client-secret: ${KC_BFF_CLIENT_SECRET}
+
+app:
+  admin:
+    usernames: ${APP_ADMIN_USERNAMES:}
+  email:
+    enabled: ${ARENAOPS_MAIL_ENABLED:true}
+    from: ${ARENAOPS_MAIL_FROM:noreply@arenaops.in}
+    from-name: ${ARENAOPS_MAIL_FROM_NAME:ArenaOps}
+    reply-to: ${ARENAOPS_MAIL_REPLY_TO:}
+    frontend-url: ${ARENAOPS_FRONTEND_URL:${APP_BASE_URL:http://localhost:4200}}
+
+management:
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      group:
+        readiness:
+          include: readinessState,db
+  endpoints:
+    web:
+      exposure:
+        include: health,info

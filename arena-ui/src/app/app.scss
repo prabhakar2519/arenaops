@@ -1,0 +1,16 @@
+.main-content {
+    @media (max-width: 860px) {
+        padding-bottom: calc(7rem + env(safe-area-inset-bottom, 0px));
+    }
+}
+.api-error-banner {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem;
+  margin: 1rem;
+  border: 1px solid #b42318;
+  border-radius: 8px;
+  color: var(--text-main);
+  background: var(--bg-card);
+}

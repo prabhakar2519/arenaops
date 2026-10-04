@@ -1,0 +1,182 @@
+name: ArenaOps Application CI and Release
+
+on:
+  push:
+    branches:
+      - main
+      - "feature/**"
+      - "bugfix/**"
+      - "release/v*"
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: application-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    name: Build and test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify production approval policy
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/heads/release/v')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: ./deploy/verify-production-gate.sh
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+
+      - name: Test core
+        run: mvn --batch-mode -f arena-core/pom.xml clean verify
+
+      - name: Test login gateway
+        run: mvn --batch-mode -f arena-login/pom.xml clean verify
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: arena-ui/package-lock.json
+
+      - name: Build UI
+        working-directory: arena-ui
+        run: |
+          npm ci
+          npm test
+          npm run build
+
+      - name: Validate SIT and PROD application deployment
+        run: ./deploy/validate.sh
+
+      - name: Validate deployed UI runtime configuration and Nginx
+        run: ./deploy/validate-ui.sh
+
+      - name: Lint workflow and shell scripts
+        run: |
+          docker run --rm --network none --entrypoint sh \
+            -v "$PWD:/repo:ro" -w /repo rhysd/actionlint:1.7.7 \
+            -c 'actionlint .github/workflows/application.yaml && shellcheck deploy/*.sh arena-ui/docker/*.sh'
+
+  publish:
+    name: Publish application images
+    needs: validate
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/v'))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      image_tag: ${{ steps.release.outputs.image_tag }}
+      image_repository: ${{ steps.release.outputs.image_repository }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Derive immutable release coordinates
+        id: release
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$GITHUB_REF" == refs/heads/main ]]; then
+            image_tag="sha-$GITHUB_SHA"
+          else
+            image_tag="${GITHUB_REF_NAME#release/}"
+            [[ "$image_tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]
+          fi
+          repository="ghcr.io/${GITHUB_REPOSITORY,,}"
+          echo "image_tag=$image_tag" >> "$GITHUB_OUTPUT"
+          echo "image_repository=$repository" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push core
+        uses: docker/build-push-action@v6
+        with:
+          context: arena-core
+          push: true
+          tags: |
+            ${{ steps.release.outputs.image_repository }}/arena-core:${{ steps.release.outputs.image_tag }}
+            ${{ steps.release.outputs.image_repository }}/arena-core:sha-${{ github.sha }}
+
+      - name: Build and push login gateway
+        uses: docker/build-push-action@v6
+        with:
+          context: arena-login
+          push: true
+          tags: |
+            ${{ steps.release.outputs.image_repository }}/arena-login:${{ steps.release.outputs.image_tag }}
+            ${{ steps.release.outputs.image_repository }}/arena-login:sha-${{ github.sha }}
+
+      - name: Build and push UI
+        uses: docker/build-push-action@v6
+        with:
+          context: arena-ui
+          push: true
+          tags: |
+            ${{ steps.release.outputs.image_repository }}/arena-ui:${{ steps.release.outputs.image_tag }}
+            ${{ steps.release.outputs.image_repository }}/arena-ui:sha-${{ github.sha }}
+
+  deploy:
+    name: Deploy selected application environment
+    needs: publish
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/v'))
+    runs-on: ubuntu-latest
+    environment: ${{ github.ref == 'refs/heads/main' && 'sit' || 'production' }}
+    concurrency:
+      group: arenaops-${{ github.ref == 'refs/heads/main' && 'sit' || 'production' }}-application
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+      - name: Recheck production approval policy before VPS access
+        if: startsWith(github.ref, 'refs/heads/release/v')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: ./deploy/verify-production-gate.sh
+      - name: Deploy published application release with temporary runtime secrets
+        env:
+          TARGET_ENVIRONMENT: ${{ github.ref == 'refs/heads/main' && 'sit' || 'production' }}
+          IMAGE_TAG: ${{ needs.publish.outputs.image_tag }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USERNAME: ${{ secrets.VPS_USERNAME }}
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_SSH_HOST_KEY: ${{ secrets.VPS_SSH_HOST_KEY }}
+          GHCR_USERNAME: ${{ secrets.GHCR_USERNAME }}
+          GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
+          ARENA_DB_NAME: ${{ secrets.ARENA_DB_NAME }}
+          ARENA_DB_USERNAME: ${{ secrets.ARENA_DB_USERNAME }}
+          ARENA_DB_PASSWORD: ${{ secrets.ARENA_DB_PASSWORD }}
+          KC_BFF_CLIENT_SECRET: ${{ secrets.KC_BFF_CLIENT_SECRET }}
+          APP_ADMIN_USERNAMES: ${{ vars.APP_ADMIN_USERNAMES }}
+          ARENAOPS_MAIL_ENABLED: ${{ vars.ARENAOPS_MAIL_ENABLED }}
+          BREVO_SMTP_HOST: ${{ vars.BREVO_SMTP_HOST }}
+          BREVO_SMTP_PORT: ${{ vars.BREVO_SMTP_PORT }}
+          BREVO_SMTP_USERNAME: ${{ secrets.BREVO_SMTP_USERNAME }}
+          BREVO_SMTP_PASSWORD: ${{ secrets.BREVO_SMTP_PASSWORD }}
+          ARENAOPS_MAIL_FROM: ${{ vars.ARENAOPS_MAIL_FROM }}
+          ARENAOPS_MAIL_FROM_NAME: ${{ vars.ARENAOPS_MAIL_FROM_NAME }}
+          ARENAOPS_MAIL_REPLY_TO: ${{ vars.ARENAOPS_MAIL_REPLY_TO }}
+          ARENAOPS_BILLING_MONTHLY: ${{ vars.ARENAOPS_BILLING_MONTHLY }}
+          ARENAOPS_BILLING_ANNUAL: ${{ vars.ARENAOPS_BILLING_ANNUAL }}
+          ARENAOPS_BILLING_TAX_RATE: ${{ vars.ARENAOPS_BILLING_TAX_RATE }}
+        run: ./deploy/deploy-from-actions.sh

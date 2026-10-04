@@ -1,0 +1,61 @@
+services:
+  arena-core:
+    container_name: ${ARENA_ENV:?ARENA_ENV is required}-arena-core
+    image: ${IMAGE_REPOSITORY:?IMAGE_REPOSITORY is required}/arena-core:${IMAGE_TAG:?IMAGE_TAG is required}
+    restart: unless-stopped
+    env_file:
+      - path: ${CORE_RUNTIME_ENV_FILE:?CORE_RUNTIME_ENV_FILE is required}
+        format: raw
+    environment:
+      SPRING_PROFILES_ACTIVE: ${ARENA_ENV:?ARENA_ENV is required}
+    networks:
+      arenaops:
+        aliases: ["${ARENA_ENV:?ARENA_ENV is required}-arena-core"]
+    healthcheck:
+      test: [CMD, curl, --fail, --silent, --max-time, '5', 'http://127.0.0.1:7701/actuator/health/readiness']
+      interval: 10s
+      timeout: 6s
+      start_period: 60s
+      retries: 24
+  arena-login:
+    container_name: ${ARENA_ENV:?ARENA_ENV is required}-arena-login
+    image: ${IMAGE_REPOSITORY:?IMAGE_REPOSITORY is required}/arena-login:${IMAGE_TAG:?IMAGE_TAG is required}
+    restart: unless-stopped
+    depends_on:
+      arena-core:
+        condition: service_healthy
+    env_file:
+      - path: ${LOGIN_RUNTIME_ENV_FILE:?LOGIN_RUNTIME_ENV_FILE is required}
+        format: raw
+    environment:
+      SPRING_PROFILES_ACTIVE: ${ARENA_ENV:?ARENA_ENV is required}
+    networks:
+      arenaops:
+        aliases: ["${ARENA_ENV:?ARENA_ENV is required}-arena-login"]
+    healthcheck:
+      test: [CMD, curl, --fail, --silent, --max-time, '5', 'http://127.0.0.1:7700/api/readiness']
+      interval: 10s
+      timeout: 6s
+      start_period: 30s
+      retries: 18
+  arena-ui:
+    container_name: ${ARENA_ENV:?ARENA_ENV is required}-arena-ui
+    image: ${IMAGE_REPOSITORY:?IMAGE_REPOSITORY is required}/arena-ui:${IMAGE_TAG:?IMAGE_TAG is required}
+    restart: unless-stopped
+    depends_on:
+      arena-login:
+        condition: service_healthy
+    environment:
+      ARENA_ENV: ${ARENA_ENV:?ARENA_ENV is required}
+    networks:
+      arenaops:
+        aliases: ["${ARENA_ENV:?ARENA_ENV is required}-arena-ui"]
+    healthcheck:
+      test: [CMD, wget, -q, -O, /dev/null, 'http://127.0.0.1/arena-config.js']
+      interval: 10s
+      timeout: 5s
+      retries: 12
+networks:
+  arenaops:
+    external: true
+    name: ${ARENAOPS_NETWORK:?ARENAOPS_NETWORK is required}

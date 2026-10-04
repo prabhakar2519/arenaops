@@ -1,0 +1,51 @@
+server:
+  port: 7700
+  forward-headers-strategy: native
+  servlet:
+    session:
+      timeout: 7h
+      cookie:
+        path: /
+        secure: ${SESSION_COOKIE_SECURE:false}
+
+spring:
+  application:
+    name: arena-login
+
+  security:
+    oauth2:
+      client:
+        registration:
+          keycloak:
+            client-id: arena-ui
+            client-authentication-method: none
+            scope: openid,profile,email,roles
+            authorization-grant-type: authorization_code
+            redirect-uri: "${APP_BASE_URL:http://localhost:4200}/login/callback"
+        provider:
+          keycloak:
+            authorization-uri: "${KC_AUTH_URL:http://localhost:9091/auth}/realms/${keycloak-admin.realm}/protocol/openid-connect/auth"
+            token-uri: "${KC_BASE_URL:http://localhost:9091/auth}/realms/${keycloak-admin.realm}/protocol/openid-connect/token"
+            jwk-set-uri: "${KC_BASE_URL:http://localhost:9091/auth}/realms/${keycloak-admin.realm}/protocol/openid-connect/certs"
+            user-info-uri: "${KC_BASE_URL:http://localhost:9091/auth}/realms/${keycloak-admin.realm}/protocol/openid-connect/userinfo"
+            user-name-attribute: preferred_username
+
+keycloak-admin:
+  server-url: "${KC_BASE_URL:http://localhost:9091/auth}"
+  realm: ${KC_REALM:arena-dev}
+  client-id: arena-bff
+
+arena:
+  core:
+    url: "${ARENA_CORE_URL:http://localhost:7701}"
+
+app:
+  admin:
+    usernames: "${APP_ADMIN_USERNAMES:}"
+  cors:
+    allowed-origins: "${APP_CORS_ALLOWED_ORIGINS:http://localhost:4200,http://127.0.0.1:4200,http://localhost:4201,http://127.0.0.1:4201}"
+
+logging:
+  level:
+    org.springframework.security: INFO
+    org.springframework.web: INFO

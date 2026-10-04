@@ -1,0 +1,183 @@
+<div class="home-container">
+    <section class="hero-section" *ngIf="slides.length > 0">
+        <div class="hero-visual">
+            <div class="hero-slider">
+                <div *ngFor="let slide of slides; let i = index"
+                    class="hero-slide"
+                    [class.active]="i === currentSlide"
+                    [style.backgroundImage]="'url(' + slide.src + ')'">
+                </div>
+            </div>
+
+            <div class="hero-overlay">
+                <p class="hero-kicker">Arena Sports Operations</p>
+                <h1>{{ bannerTitle }}</h1>
+                <p class="hero-subtitle">{{ bannerSubtitle }}</p>
+                <div class="hero-actions" *ngIf="!authService.isAuthenticated()">
+                    <a routerLink="/register" class="hero-action primary">Start Venue</a>
+                    <button type="button" class="hero-action secondary" (click)="authService.loginWithKeycloak()">
+                        Login
+                    </button>
+                </div>
+            </div>
+
+            <div class="hero-stats" aria-label="ArenaOps highlights">
+                <div>
+                    <strong>Live</strong>
+                    <span>tables and courts</span>
+                </div>
+                <div>
+                    <strong>Fast</strong>
+                    <span>session billing</span>
+                </div>
+                <div>
+                    <strong>Clear</strong>
+                    <span>daily reports</span>
+                </div>
+            </div>
+
+            <div class="hero-dots">
+                <button *ngFor="let slide of slides; let i = index"
+                    type="button"
+                    class="hero-dot"
+                    [class.active]="i === currentSlide"
+                    (click)="currentSlide = i"
+                    [attr.aria-label]="slide.alt">
+                </button>
+            </div>
+        </div>
+    </section>
+
+    <section class="sports-story-section">
+        <div class="story-copy">
+            <p class="section-kicker">Built For Play Venues</p>
+            <h2>Give your snooker room the polish of a premium club.</h2>
+            <p>
+                ArenaOps keeps tables, courts, sessions, payments, and staff work moving in one focused workspace,
+                so the front desk can stay close to the game.
+            </p>
+        </div>
+
+        <div class="sport-gallery" aria-label="Snooker and sports gallery">
+            <figure class="gallery-tile large">
+                <img src="/slide2.jpg" alt="Premium snooker table with arena lighting">
+                <figcaption>Snooker sessions</figcaption>
+            </figure>
+            <figure class="gallery-tile">
+                <img src="/slide3.jpg" alt="Snooker balls arranged for a precision shot">
+                <figcaption>Table tracking</figcaption>
+            </figure>
+            <figure class="gallery-tile">
+                <img src="/images/games/badminton/badminton-2.jpg" alt="Badminton racket and shuttle on court">
+                <figcaption>Multi sport ready</figcaption>
+            </figure>
+        </div>
+    </section>
+
+    <section class="experience-section">
+        <article class="experience-card">
+            <img src="/slide1.jpg" alt="Snooker player preparing a shot">
+            <div>
+                <p class="section-kicker">Front Desk</p>
+                <h3>Start, reserve, extend, and settle sessions without friction.</h3>
+                <p>Designed for repeated daily use, with the important actions close to hand.</p>
+            </div>
+        </article>
+        <article class="experience-card">
+            <img src="/snooker_legends_hero.png" alt="Snooker themed sports visual">
+            <div>
+                <p class="section-kicker">Owners</p>
+                <h3>See active play, collections, and unsettled activity at a glance.</h3>
+                <p>Keep revenue visible while your team handles the floor.</p>
+            </div>
+        </article>
+        <article class="experience-card">
+            <img src="/images/games/badminton/badminton-1.jpeg" alt="Badminton action at the court">
+            <div>
+                <p class="section-kicker">Teams</p>
+                <h3>Manage staff access across snooker and badminton operations.</h3>
+                <p>Owners stay in control while staff get the tools they need.</p>
+            </div>
+        </article>
+    </section>
+
+    <div class="snapshot-section" *ngIf="hasSnapshots">
+        <div class="snapshot-overview">
+            <div class="overview-copy">
+                <h2>Live snapshots across your registered sports</h2>
+                <p>Track active play areas, unsettled sessions, and today’s revenue without leaving home.</p>
+            </div>
+            <div class="overview-metrics">
+                <div class="overview-metric">
+                    <span>Running</span>
+                    <strong>{{ totalRunningCount }}</strong>
+                </div>
+                <div class="overview-metric">
+                    <span>Available</span>
+                    <strong>{{ totalAvailableCount }}</strong>
+                </div>
+                <div class="overview-metric">
+                    <span>Current</span>
+                    <strong>₹{{ truncateAmount(totalTodayRevenue) }}</strong>
+                </div>
+                <div class="overview-metric">
+                    <span>Collected</span>
+                    <strong>₹{{ truncateAmount(totalCollectedRevenue) }}</strong>
+                </div>
+                <div class="overview-metric">
+                    <span>Total</span>
+                    <strong>₹{{ truncateAmount(totalRevenue) }}</strong>
+                </div>
+            </div>
+        </div>
+
+        <div class="snapshot-grid">
+            <article class="snapshot-card" *ngFor="let snapshot of sportSnapshots">
+                <div class="snapshot-card-top">
+                    <div>
+                        <p class="snapshot-sport">{{ formatSportName(snapshot.sport) }}</p>
+                        <h3>{{ snapshot.parlourName }}</h3>
+                    </div>
+                    <button type="button" class="snapshot-link" (click)="openSport(snapshot)">
+                        Open {{ formatSportName(snapshot.sport) }}
+                    </button>
+                </div>
+
+                <div class="snapshot-metrics">
+                    <div class="snapshot-metric">
+                        <span>Running</span>
+                        <strong>{{ snapshot.runningCount }}</strong>
+                    </div>
+                    <div class="snapshot-metric">
+                        <span>Available</span>
+                        <strong>{{ snapshot.availableCount }}</strong>
+                    </div>
+                    <div class="snapshot-metric">
+                        <span>{{ getSurfaceLabel(snapshot) }}</span>
+                        <strong>{{ snapshot.totalAreas }}</strong>
+                    </div>
+                    <div class="snapshot-metric">
+                        <span>Unsettled</span>
+                        <strong>{{ snapshot.unsettledCount }}</strong>
+                    </div>
+                </div>
+
+                <div class="snapshot-revenue">
+                    <div>
+                        <span>Current</span>
+                        <strong>₹{{ truncateAmount(snapshot.currentRevenue) }}</strong>
+                    </div>
+                    <div>
+                        <span>Collected</span>
+                        <strong>₹{{ truncateAmount(snapshot.collectedRevenue) }}</strong>
+                    </div>
+                    <div>
+                        <span>Total</span>
+                        <strong>₹{{ truncateAmount(snapshot.totalRevenue) }}</strong>
+                    </div>
+                </div>
+
+            </article>
+        </div>
+    </div>
+</div>

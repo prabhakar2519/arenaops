@@ -1,0 +1,30 @@
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="
+        http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+<changeSet id="R1_0-07-create-user-parlour-mapping" author="arena">
+        <validCheckSum>9:9a901abf8d7200fd5efa7befba3aaf9f</validCheckSum>
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <tableExists schemaName="arena" tableName="user_parlour_mapping"/>
+            </not>
+        </preConditions>
+        <createSequence schemaName="arena" sequenceName="seq_user_parlour_mapping" startValue="1"/>
+        <createTable schemaName="arena" tableName="user_parlour_mapping">
+            <column name="id" type="BIGINT">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="user_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="parlour_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="is_active" type="BOOLEAN" defaultValueBoolean="true"/>
+            <column name="created_at" type="TIMESTAMP" defaultValueComputed="CURRENT_TIMESTAMP"/>
+            <column name="updated_at" type="TIMESTAMP" defaultValueComputed="CURRENT_TIMESTAMP"/>
+        </createTable>
+    </changeSet>
+</databaseChangeLog>
