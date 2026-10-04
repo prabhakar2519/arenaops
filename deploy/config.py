@@ -54,11 +54,11 @@ def configuration(values):
         raise ConfigError('IMAGE_TAG must be a reviewed release version or full commit SHA tag')
     realm, origin = ENVIRONMENTS[environment]
     common = {key: values[key] for key in REQUIRED}
-    common.update(ARENA_ENV=environment, KC_REALM=realm, KC_BASE_URL='http://keycloak:8080/auth',
-                  KC_AUTH_URL=origin + '/auth', KC_JWK_SET_URI='http://keycloak:8080/auth/realms/' + realm + '/protocol/openid-connect/certs',
+    common.update(ARENA_ENV=environment, KC_REALM=realm, KC_BASE_URL='http://' + environment + '-keycloak:8080/auth',
+                  KC_AUTH_URL=origin + '/auth', KC_JWK_SET_URI='http://' + environment + '-keycloak:8080/auth/realms/' + realm + '/protocol/openid-connect/certs',
                   KC_ISSUER_URI=origin + '/auth/realms/' + realm, APP_ADMIN_USERNAMES=values.get('APP_ADMIN_USERNAMES', ''))
     core = dict(common, **{key: values.get(key) or default for key, default in OPTIONAL_DEFAULTS.items()})
-    core.update(ARENA_DB_HOST='postgres', ARENA_DB_SCHEMA='arena', ARENAOPS_FRONTEND_URL=origin, APP_BASE_URL=origin)
+    core.update(ARENA_DB_HOST=environment + '-postgres', ARENA_DB_SCHEMA='arena', ARENAOPS_FRONTEND_URL=origin, APP_BASE_URL=origin)
     if core['ARENAOPS_MAIL_ENABLED'] not in ('true', 'false'):
         raise ConfigError('ARENAOPS_MAIL_ENABLED must be true or false')
     if core['ARENAOPS_MAIL_ENABLED'] == 'true':
@@ -66,7 +66,7 @@ def configuration(values):
             if not core[key]:
                 raise ConfigError(key + ' is required when email is enabled')
     login = {key: value for key, value in common.items() if not key.startswith('ARENA_DB_') and key != 'KC_BFF_CLIENT_SECRET'}
-    login.update(APP_BASE_URL=origin, APP_CORS_ALLOWED_ORIGINS=origin, SESSION_COOKIE_SECURE='true', ARENA_CORE_URL='http://arena-core:7701')
+    login.update(APP_BASE_URL=origin, APP_CORS_ALLOWED_ORIGINS=origin, SESSION_COOKIE_SECURE='true', ARENA_CORE_URL='http://' + environment + '-arena-core:7701')
     compose = dict(ARENA_ENV=environment, COMPOSE_PROJECT_NAME='arenaops-' + environment + '-app',
                    ARENAOPS_NETWORK='arenaops-' + environment, ARENAOPS_TARGET='/opt/arenaops/' + environment,
                    IMAGE_REPOSITORY=values['IMAGE_REPOSITORY'], IMAGE_TAG=values['IMAGE_TAG'])

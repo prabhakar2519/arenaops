@@ -49,3 +49,9 @@ mvn --batch-mode -f arena-login/pom.xml clean verify
 ```
 
 The deployment tests use dummy values and mocked commands; UI container checks publish no host ports and use an isolated network. Database-backed billing tests need their explicit test database variables and otherwise skip. Real VPS deployment and end-to-end Keycloak login remain operator verification steps. The ignored `implementation_plan/implementation_plan.md` records local changes and exact checks.
+
+## Shared VPS ingress
+
+One infrastructure-owned `arenaops-edge-caddy` serves `sit.arenaops.in` and `arenaops.in` on 80/443 and joins `arenaops-sit` / `arenaops-prod`. Each application stack joins only its own network. Containers and canonical aliases are `sit-arena-core`, `sit-arena-login`, `sit-arena-ui` and their `prod-` equivalents. Internal calls use the same environment's `<env>-keycloak` / `<env>-postgres` aliases.
+
+Caddy routes `/api` and `/api/*` to the matching BFF, the selected realm (`arena-sit` or `arena`) and `/auth/resources/*` to matching Keycloak, and remaining paths to matching UI. Other auth realms/admin/management paths are blocked. UI Nginx refuses API/auth paths directly. The shared edge manages TLS for both domains. Deploy the matching infrastructure aliases before or alongside these application changes; see the infrastructure README for legacy proxy retirement and certificate migration. No deployment was performed for this change.

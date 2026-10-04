@@ -42,7 +42,10 @@ class DeploymentTests(unittest.TestCase):
                 self.assertTrue(composed['networks']['arenaops']['external'])
                 self.assertEqual(exports['ARENAOPS_TARGET'], '/opt/arenaops/' + environment)
                 services = composed['services']
-                for service in services.values():
+                for name, service in services.items():
+                    self.assertEqual(service['container_name'], environment + '-' + name)
+                    self.assertEqual(set(service['networks']), {'arenaops'})
+                    self.assertIn(environment + '-' + name, service['networks']['arenaops']['aliases'])
                     self.assertNotIn('ports', service)
                     self.assertEqual(service['restart'], 'unless-stopped')
                     self.assertIn('healthcheck', service)
@@ -55,6 +58,9 @@ class DeploymentTests(unittest.TestCase):
                 self.assertEqual(core['ARENA_DB_PASSWORD'].replace('$$', '$'), secret)
                 self.assertEqual(core['KC_BFF_CLIENT_SECRET'].replace('$$', '$'), secret)
                 self.assertNotIn('KC_BFF_CLIENT_SECRET', services['arena-login']['environment'])
+                self.assertEqual(core['ARENA_DB_HOST'], environment + '-postgres')
+                self.assertEqual(core['KC_BASE_URL'], 'http://' + environment + '-keycloak:8080/auth')
+                self.assertEqual(services['arena-login']['environment']['ARENA_CORE_URL'], 'http://' + environment + '-arena-core:7701')
                 self.assertEqual(core['KC_ISSUER_URI'], origin + '/auth/realms/' + realm)
                 self.assertEqual(services['arena-login']['environment']['APP_CORS_ALLOWED_ORIGINS'], origin)
                 self.assertNotIn('ARENA_DB_PASSWORD', services['arena-login']['environment'])
