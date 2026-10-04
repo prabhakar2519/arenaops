@@ -8,11 +8,11 @@
         <validCheckSum>9:b76ca1417e67aa38d9babe29214d2209</validCheckSum>
         <preConditions onFail="MARK_RAN">
             <not>
-                <tableExists schemaName="arena" tableName="app_user"/>
+                <tableExists schemaName="${ARENA_DB_SCHEMA}" tableName="app_user"/>
             </not>
         </preConditions>
-        <createSequence schemaName="arena" sequenceName="seq_app_user" startValue="1"/>
-        <createTable schemaName="arena" tableName="app_user">
+        <createSequence schemaName="${ARENA_DB_SCHEMA}" sequenceName="seq_app_user" startValue="1"/>
+        <createTable schemaName="${ARENA_DB_SCHEMA}" tableName="app_user">
             <column name="id" type="BIGINT">
                 <constraints primaryKey="true" nullable="false"/>
             </column>

@@ -1,13 +1,13 @@
 <databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.17.xsd">
   <changeSet id="r1-9-owner-billing" author="arena">
     <sql>
-      ALTER TABLE arena.customer ADD COLUMN version BIGINT NOT NULL DEFAULT 0;
-      ALTER TABLE arena.customer_subscription ADD COLUMN version BIGINT NOT NULL DEFAULT 0;
-      ALTER TABLE arena.customer_subscription ADD COLUMN billing_plan_id VARCHAR(40);
-      CREATE TABLE arena.billing_order (
+      ALTER TABLE ${ARENA_DB_SCHEMA}.customer ADD COLUMN version BIGINT NOT NULL DEFAULT 0;
+      ALTER TABLE ${ARENA_DB_SCHEMA}.customer_subscription ADD COLUMN version BIGINT NOT NULL DEFAULT 0;
+      ALTER TABLE ${ARENA_DB_SCHEMA}.customer_subscription ADD COLUMN billing_plan_id VARCHAR(40);
+      CREATE TABLE ${ARENA_DB_SCHEMA}.billing_order (
         id UUID PRIMARY KEY,
-        customer_id BIGINT NOT NULL REFERENCES arena.customer(id),
-        subscription_id BIGINT NOT NULL REFERENCES arena.customer_subscription(id),
+        customer_id BIGINT NOT NULL REFERENCES ${ARENA_DB_SCHEMA}.customer(id),
+        subscription_id BIGINT NOT NULL REFERENCES ${ARENA_DB_SCHEMA}.customer_subscription(id),
         request_id UUID NOT NULL,
         plan_id VARCHAR(40) NOT NULL,
         plan_name VARCHAR(100) NOT NULL,
@@ -22,10 +22,10 @@
         expires_at TIMESTAMP NOT NULL,
         CONSTRAINT ux_billing_order_request UNIQUE(customer_id, request_id)
       );
-      CREATE INDEX idx_billing_order_customer_status ON arena.billing_order(customer_id,status,created_at);
-      CREATE TABLE arena.billing_attempt (
+      CREATE INDEX idx_billing_order_customer_status ON ${ARENA_DB_SCHEMA}.billing_order(customer_id,status,created_at);
+      CREATE TABLE ${ARENA_DB_SCHEMA}.billing_attempt (
         id UUID PRIMARY KEY,
-        order_id UUID NOT NULL REFERENCES arena.billing_order(id),
+        order_id UUID NOT NULL REFERENCES ${ARENA_DB_SCHEMA}.billing_order(id),
         provider VARCHAR(40) NOT NULL,
         provider_reference VARCHAR(160) NOT NULL,
         amount NUMERIC(12,2) NOT NULL CHECK (amount > 0),
@@ -35,9 +35,9 @@
         completed_at TIMESTAMP,
         CONSTRAINT ux_billing_attempt_provider UNIQUE(provider,provider_reference)
       );
-      CREATE INDEX idx_billing_attempt_order ON arena.billing_attempt(order_id,created_at);
-      CREATE UNIQUE INDEX ux_billing_attempt_pending ON arena.billing_attempt(order_id) WHERE status='PAYMENT_PENDING';
+      CREATE INDEX idx_billing_attempt_order ON ${ARENA_DB_SCHEMA}.billing_attempt(order_id,created_at);
+      CREATE UNIQUE INDEX ux_billing_attempt_pending ON ${ARENA_DB_SCHEMA}.billing_attempt(order_id) WHERE status='PAYMENT_PENDING';
     </sql>
-    <rollback><sql>DROP TABLE arena.billing_attempt; DROP TABLE arena.billing_order; ALTER TABLE arena.customer DROP COLUMN version; ALTER TABLE arena.customer_subscription DROP COLUMN version; ALTER TABLE arena.customer_subscription DROP COLUMN billing_plan_id;</sql></rollback>
+    <rollback><sql>DROP TABLE ${ARENA_DB_SCHEMA}.billing_attempt; DROP TABLE ${ARENA_DB_SCHEMA}.billing_order; ALTER TABLE ${ARENA_DB_SCHEMA}.customer DROP COLUMN version; ALTER TABLE ${ARENA_DB_SCHEMA}.customer_subscription DROP COLUMN version; ALTER TABLE ${ARENA_DB_SCHEMA}.customer_subscription DROP COLUMN billing_plan_id;</sql></rollback>
   </changeSet>
 </databaseChangeLog>

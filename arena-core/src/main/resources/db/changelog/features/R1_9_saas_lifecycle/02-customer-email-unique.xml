@@ -5,13 +5,13 @@
         <preConditions onFail="HALT" onFailMessage="Duplicate customer owner emails exist. Resolve them before applying customer email uniqueness; no customer data has been removed.">
             <sqlCheck expectedResult="0">
                 SELECT count(*) FROM (
-                    SELECT lower(trim(owner_email)) FROM arena.customer
+                    SELECT lower(trim(owner_email)) FROM ${ARENA_DB_SCHEMA}.customer
                     WHERE owner_email IS NOT NULL AND trim(owner_email) != ''
                     GROUP BY lower(trim(owner_email)) HAVING count(*) &gt; 1
                 ) duplicates
             </sqlCheck>
         </preConditions>
-        <sql>CREATE UNIQUE INDEX ux_customer_owner_email_normalized ON arena.customer (lower(trim(owner_email))) WHERE owner_email IS NOT NULL AND trim(owner_email) != '';</sql>
-        <rollback><sql>DROP INDEX arena.ux_customer_owner_email_normalized;</sql></rollback>
+        <sql>CREATE UNIQUE INDEX ux_customer_owner_email_normalized ON ${ARENA_DB_SCHEMA}.customer (lower(trim(owner_email))) WHERE owner_email IS NOT NULL AND trim(owner_email) != '';</sql>
+        <rollback><sql>DROP INDEX ${ARENA_DB_SCHEMA}.ux_customer_owner_email_normalized;</sql></rollback>
     </changeSet>
 </databaseChangeLog>

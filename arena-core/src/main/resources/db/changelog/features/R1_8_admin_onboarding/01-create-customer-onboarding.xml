@@ -7,11 +7,11 @@
     <changeSet id="r1-8-create-customer" author="codex">
         <preConditions onFail="MARK_RAN">
             <not>
-                <tableExists schemaName="arena" tableName="customer"/>
+                <tableExists schemaName="${ARENA_DB_SCHEMA}" tableName="customer"/>
             </not>
         </preConditions>
-        <createSequence schemaName="arena" sequenceName="seq_customer" startValue="1"/>
-        <createTable schemaName="arena" tableName="customer">
+        <createSequence schemaName="${ARENA_DB_SCHEMA}" sequenceName="seq_customer" startValue="1"/>
+        <createTable schemaName="${ARENA_DB_SCHEMA}" tableName="customer">
             <column name="id" type="BIGINT">
                 <constraints primaryKey="true" nullable="false"/>
             </column>
@@ -74,11 +74,11 @@
     <changeSet id="r1-8-create-customer-onboarding-code" author="codex">
         <preConditions onFail="MARK_RAN">
             <not>
-                <tableExists schemaName="arena" tableName="customer_onboarding_code"/>
+                <tableExists schemaName="${ARENA_DB_SCHEMA}" tableName="customer_onboarding_code"/>
             </not>
         </preConditions>
-        <createSequence schemaName="arena" sequenceName="seq_customer_onboarding_code" startValue="1"/>
-        <createTable schemaName="arena" tableName="customer_onboarding_code">
+        <createSequence schemaName="${ARENA_DB_SCHEMA}" sequenceName="seq_customer_onboarding_code" startValue="1"/>
+        <createTable schemaName="${ARENA_DB_SCHEMA}" tableName="customer_onboarding_code">
             <column name="id" type="BIGINT">
                 <constraints primaryKey="true" nullable="false"/>
             </column>
@@ -105,11 +105,11 @@
             <column name="created_at" type="TIMESTAMP" defaultValueComputed="CURRENT_TIMESTAMP"/>
             <column name="updated_at" type="TIMESTAMP" defaultValueComputed="CURRENT_TIMESTAMP"/>
         </createTable>
-        <addForeignKeyConstraint baseTableSchemaName="arena"
+        <addForeignKeyConstraint baseTableSchemaName="${ARENA_DB_SCHEMA}"
                                  baseTableName="customer_onboarding_code"
                                  baseColumnNames="customer_id"
                                  constraintName="fk_onboarding_code_customer"
-                                 referencedTableSchemaName="arena"
+                                 referencedTableSchemaName="${ARENA_DB_SCHEMA}"
                                  referencedTableName="customer"
                                  referencedColumnNames="id"/>
     </changeSet>
@@ -117,27 +117,27 @@
     <changeSet id="r1-8-link-user-and-parlour-to-customer" author="codex">
         <preConditions onFail="MARK_RAN">
             <not>
-                <columnExists schemaName="arena" tableName="app_user" columnName="customer_id"/>
+                <columnExists schemaName="${ARENA_DB_SCHEMA}" tableName="app_user" columnName="customer_id"/>
             </not>
         </preConditions>
-        <addColumn tableName="app_user" schemaName="arena">
+        <addColumn tableName="app_user" schemaName="${ARENA_DB_SCHEMA}">
             <column name="customer_id" type="BIGINT"/>
         </addColumn>
-        <addColumn tableName="parlour" schemaName="arena">
+        <addColumn tableName="parlour" schemaName="${ARENA_DB_SCHEMA}">
             <column name="customer_id" type="BIGINT"/>
         </addColumn>
-        <addForeignKeyConstraint baseTableSchemaName="arena"
+        <addForeignKeyConstraint baseTableSchemaName="${ARENA_DB_SCHEMA}"
                                  baseTableName="app_user"
                                  baseColumnNames="customer_id"
                                  constraintName="fk_app_user_customer"
-                                 referencedTableSchemaName="arena"
+                                 referencedTableSchemaName="${ARENA_DB_SCHEMA}"
                                  referencedTableName="customer"
                                  referencedColumnNames="id"/>
-        <addForeignKeyConstraint baseTableSchemaName="arena"
+        <addForeignKeyConstraint baseTableSchemaName="${ARENA_DB_SCHEMA}"
                                  baseTableName="parlour"
                                  baseColumnNames="customer_id"
                                  constraintName="fk_parlour_customer"
-                                 referencedTableSchemaName="arena"
+                                 referencedTableSchemaName="${ARENA_DB_SCHEMA}"
                                  referencedTableName="customer"
                                  referencedColumnNames="id"/>
     </changeSet>

@@ -8,6 +8,7 @@ import tempfile
 import re
 import textwrap
 import unittest
+import xml.etree.ElementTree as ET
 
 ROOT = Path(__file__).resolve().parents[2]
 spec = importlib.util.spec_from_file_location('app_config', ROOT / 'deploy/config.py')
@@ -17,7 +18,7 @@ spec.loader.exec_module(config)
 class DeploymentTests(unittest.TestCase):
     def values(self, environment='sit', **overrides):
         values = {key: 'validation' for key in config.REQUIRED}
-        values.update(ARENA_ENV=environment, IMAGE_REPOSITORY='ghcr.io/example/arenaops', IMAGE_TAG='v1.9.0')
+        values.update(ARENA_DB_NAME=config.SCHEMAS.get(environment, 'arena_dev'), ARENA_DB_SCHEMA=config.SCHEMAS.get(environment, 'arena_dev'), ARENA_ENV=environment, IMAGE_REPOSITORY='ghcr.io/example/arenaops', IMAGE_TAG='v1.9.0')
         values.update(overrides)
         return values
 
@@ -58,6 +59,7 @@ class DeploymentTests(unittest.TestCase):
                 self.assertEqual(core['ARENA_DB_PASSWORD'].replace('$$', '$'), secret)
                 self.assertEqual(core['KC_BFF_CLIENT_SECRET'].replace('$$', '$'), secret)
                 self.assertNotIn('KC_BFF_CLIENT_SECRET', services['arena-login']['environment'])
+                self.assertEqual(core['ARENA_DB_SCHEMA'], config.SCHEMAS[environment])
                 self.assertEqual(core['ARENA_DB_HOST'], environment + '-postgres')
                 self.assertEqual(core['KC_BASE_URL'], 'http://' + environment + '-keycloak:8080/auth')
                 self.assertEqual(services['arena-login']['environment']['ARENA_CORE_URL'], 'http://' + environment + '-arena-core:7701')
@@ -70,7 +72,7 @@ class DeploymentTests(unittest.TestCase):
 
     def test_invalid_environment_missing_credentials_and_mail_fail_fast(self):
         for overrides in ({'ARENA_ENV': 'dev'}, {'ARENA_ENV': 'production'}, {'KC_BFF_CLIENT_SECRET': ''},
-                          {'ARENA_DB_PASSWORD': ''}, {'IMAGE_TAG': 'latest'}, {'IMAGE_REPOSITORY': 'bad;command'},
+                          {'ARENA_DB_PASSWORD': ''}, {'ARENA_DB_SCHEMA': ''}, {'ARENA_DB_SCHEMA': ' '}, {'ARENA_DB_SCHEMA': 'arena'}, {'IMAGE_TAG': 'latest'}, {'IMAGE_REPOSITORY': 'bad;command'},
                           {'ARENAOPS_MAIL_ENABLED': 'true'}, {'ARENAOPS_MAIL_ENABLED': 'maybe'}):
             with self.subTest(overrides=overrides), self.assertRaises(config.ConfigError):
                 config.configuration(self.values(**overrides))
@@ -78,6 +80,28 @@ class DeploymentTests(unittest.TestCase):
             path = self.runtime(directory, self.values())
             path.chmod(0o644)
             with self.assertRaises(config.ConfigError): config.load_runtime(path)
+
+    def test_changelog_schema_references_are_parameterized(self):
+        for path in (ROOT / 'arena-core/src/main/resources/db').rglob('*.xml'):
+            text = path.read_text()
+            self.assertNotRegex(text, r'\barena\.')
+            self.assertNotIn('CREATE SCHEMA IF NOT EXISTS arena;', text)
+            for element in ET.fromstring(text).iter():
+                for key, value in element.attrib.items():
+                    if key.lower().endswith('schemaname'):
+                        self.assertEqual(value, '${ARENA_DB_SCHEMA}', (path, key))
+        config_text = (ROOT / 'arena-core/src/main/resources/application.yaml').read_text()
+        self.assertNotIn('${ARENA_DB_SCHEMA:', config_text)
+        self.assertIn('default_schema: ${ARENA_DB_SCHEMA}', config_text)
+        self.assertIn('default-schema: ${ARENA_DB_SCHEMA}', config_text)
+
+    def test_schema_missing_and_workflow_injection(self):
+        values = self.values()
+        del values['ARENA_DB_SCHEMA']
+        with self.assertRaisesRegex(config.ConfigError, 'ARENA_DB_SCHEMA is required'):
+            config.configuration(values)
+        workflow = (ROOT / '.github/workflows/application.yaml').read_text()
+        self.assertIn("ARENA_DB_SCHEMA: ${{ github.ref == 'refs/heads/main' && 'arena_sit' || 'arena' }}", workflow)
 
     def test_runtime_writer_roundtrip_and_no_secret_logs(self):
         with tempfile.TemporaryDirectory() as directory:

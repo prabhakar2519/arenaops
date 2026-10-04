@@ -14,7 +14,15 @@ Start DEV infrastructure in its repository using `./scripts/dev.sh start`. Copy 
 
 Match the local PostgreSQL credentials and `KC_BFF_CLIENT_SECRET` to DEV infrastructure. Existing `.env` files must rename `KEYCLOAK_BFF_SECRET` to `KC_BFF_CLIENT_SECRET` and `KEYCLOAK_SERVER_URL` to `KC_BASE_URL`, set `KC_REALM=arena-dev`, and remove or update any old `KC_JWK_SET_URI` pointing at `arena`. The credential contents are not migrated automatically.
 
-Before the first core startup, create the application `arena` schema in its database using your approved DB administration process. Existing Liquibase migrations and tracking remain in that schema; Keycloak uses its own public schema. This requirement applies to every environment, including a fresh DEV database.
+Set the required `ARENA_DB_SCHEMA` in local configuration; no schema creation command is needed. The core initializes the configured schema before Liquibase creates its tracking tables, then applies the same changelog in every environment. Keycloak continues to use its public schema.
+
+| Environment | `ARENA_DB_NAME` | `ARENA_DB_SCHEMA` |
+| --- | --- | --- |
+| DEV | `arena_dev` | `arena_dev` |
+| SIT | `arena_sit` | `arena_sit` |
+| PROD | `arena` | `arena` |
+
+Existing local `.env` files must set `ARENA_DB_NAME=arena_dev` and `ARENA_DB_SCHEMA=arena_dev` and match the DEV infrastructure database. This configuration change does not move any existing data.
 
 Start each service in its own terminal:
 
@@ -55,3 +63,17 @@ The deployment tests use dummy values and mocked commands; UI container checks p
 One infrastructure-owned `arenaops-edge-caddy` serves `sit.arenaops.in` and `arenaops.in` on 80/443 and joins `arenaops-sit` / `arenaops-prod`. Each application stack joins only its own network. Containers and canonical aliases are `sit-arena-core`, `sit-arena-login`, `sit-arena-ui` and their `prod-` equivalents. Internal calls use the same environment's `<env>-keycloak` / `<env>-postgres` aliases.
 
 Caddy routes `/api` and `/api/*` to the matching BFF, the selected realm (`arena-sit` or `arena`) and `/auth/resources/*` to matching Keycloak, and remaining paths to matching UI. Other auth realms/admin/management paths are blocked. UI Nginx refuses API/auth paths directly. The shared edge manages TLS for both domains. Deploy the matching infrastructure aliases before or alongside these application changes; see the infrastructure README for legacy proxy retirement and certificate migration. No deployment was performed for this change.
+
+## Database schema initialization
+
+`ARENA_DB_SCHEMA` is the sole schema input. `application.yaml` binds it without a fallback to Liquibase's default schema, changelog parameter `ARENA_DB_SCHEMA`, and Hibernate's `default_schema`. DEV imports the root `.env`; SIT/PROD inherit the same bindings and never load local files. JDBC does not need a separate `currentSchema` setting.
+
+`DatabaseSchemaConfiguration` validates a nonblank lowercase PostgreSQL identifier of at most 63 characters and executes `CREATE SCHEMA IF NOT EXISTS` with a quoted identifier before SpringLiquibase initialization. This ordering allows fresh tracking-table creation in the selected schema. It preserves existing schemas and never renames, moves or drops application tables. The database user needs CREATE privilege on its database and appropriate rights to the configured schema; the database itself is provisioned by infrastructure.
+
+All table, column, index, sequence, foreign-key, precondition, SQL and rollback schema references use `${ARENA_DB_SCHEMA}`. The original changeSet IDs and paths remain intact; the schema-creation changeSet remains idempotent as well. Tracking tables stay in the configured application schema.
+
+The application workflow supplies `arena_sit` for main/SIT and `arena` for release/PROD. `deploy/write-runtime-env.py` includes the required property, and `deploy/config.py` rejects missing, blank or incorrect environment schema values before SSH/deployment. Core receives it through its private runtime env file; BFF/UI do not receive database configuration. Set the GitHub database-name secret in both application and infrastructure environments to the convention above, with matching credentials. No PROD database was changed or deployed.
+
+Run `./deploy/validate-db-schema.sh` for real PostgreSQL verification: it creates disposable local databases with no application schemas, runs all core tests including fresh/repeated startup and Hibernate schema validation, checks compatibility with an existing `arena` changelog/data fixture, and removes its container. Use `./deploy/validate-db-schema.sh -Dtest=DatabaseSchemaStartupTest,BillingPersistenceTest` for focused CI database checks. Only a random loopback port is published; test credentials are disposable. `./deploy/validate.sh` also checks changelog references and deployment schema injection.
+
+Changing a schema setting on an existing installation does not migrate tables or Liquibase history. DEV/SIT databases containing data under the old `arena` schema require a separate reviewed migration; this change targets clean bootstrap. Keep PROD configured as `arena` and review its actual changelog version/checksums and privileges before any future release. No checksum reset, data move or destructive migration is included.
