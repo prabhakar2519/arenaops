@@ -66,3 +66,17 @@ test('runtime configuration fails closed on missing, inconsistent or insecure re
   assert.throws(() => validateRuntimeConfig({ arenaEnv: 'sit', keycloakRealm: 'arena', keycloakBaseUrl: 'https://sit.arenaops.in/auth' }));
   assert.throws(() => validateRuntimeConfig({ arenaEnv: 'sit', keycloakRealm: 'arena-sit', keycloakBaseUrl: 'http://sit.arenaops.in/auth' }));
 });
+
+
+test('runtime config resolves from the current host root on every SPA route', () => {
+  const html = fs.readFileSync(new URL('../src/index.html', import.meta.url), 'utf8');
+  const script = html.match(/<script\b[^>]*\bsrc=["']([^"']*arena-config\.js)["'][^>]*>/);
+  assert.ok(script, 'index.html must load runtime configuration');
+  assert.equal(script[1], '/arena-config.js');
+  // Resolve against the document URL, including before the base element is parsed.
+  for (const origin of ['http://localhost:4200', 'https://sit.arenaops.in', 'https://arenaops.in', 'https://custom-host.example']) {
+    for (const path of ['/', '/login/callback?code=test&state=test', '/dashboard', '/dashboard/', '/register', '/admin', '/billing', '/nested/route/']) {
+      assert.equal(new URL(script[1], origin + path).href, origin + '/arena-config.js');
+    }
+  }
+});
