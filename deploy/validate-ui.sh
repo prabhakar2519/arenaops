@@ -14,15 +14,18 @@ sh /40-arena-config.sh
 nginx -t
 nginx >/tmp/arena-nginx-validation.log 2>&1
 trap 'nginx -s quit >/dev/null 2>&1' EXIT
-wget -q -O - http://127.0.0.1/ | grep -q 'src="arena-config.js"'
+for path in / /login/callback /dashboard /register /admin /billing /nested/route/; do
+  wget -q -O - "http://127.0.0.1$path" | grep -q 'src="/arena-config.js"'
+done
 config="$(wget -q -O - http://127.0.0.1/arena-config.js)"
 headers="$(wget -S -O /dev/null http://127.0.0.1/arena-config.js 2>&1)"
 echo "$headers" | grep -qi 'Cache-Control: no-store'
+echo "$headers" | grep -Eqi 'Content-Type: (application|text)/(x-)?javascript([;[:space:]]|$)'
 case "$ARENA_ENV" in sit) echo "$config" | grep -q 'keycloakRealm: "arena-sit"' ;; prod) echo "$config" | grep -q 'keycloakRealm: "arena"' ;; esac
 for path in /auth/admin/ /auth/realms/master/ /api /api/test; do
   status="$(wget -S -O /dev/null "http://127.0.0.1$path" 2>&1 | sed -n 's/.*HTTP\/1.1 \([0-9]*\).*/\1/p' | head -n 1)"
   [ "$status" = 404 ] || { echo "Unexpected Keycloak proxy exposure: $path" >&2; exit 1; }
 done
-echo "$ARENA_ENV UI config and private auth routing validated"
+echo "$ARENA_ENV UI deep routes, JavaScript runtime config and private auth routing validated"
 TEST
 done
