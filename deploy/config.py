@@ -10,7 +10,7 @@ import sys
 
 REQUIRED = ('ARENA_DB_SCHEMA', 'ARENA_DB_NAME', 'ARENA_DB_USERNAME', 'ARENA_DB_PASSWORD', 'KC_BFF_CLIENT_SECRET')
 OPTIONAL_DEFAULTS = {
-    'APP_ADMIN_USERNAMES': '', 'ARENAOPS_MAIL_ENABLED': 'false',
+    'ARENAOPS_MAIL_ENABLED': 'false',
     'BREVO_SMTP_HOST': 'smtp-relay.brevo.com', 'BREVO_SMTP_PORT': '587',
     'BREVO_SMTP_USERNAME': '', 'BREVO_SMTP_PASSWORD': '', 'ARENAOPS_MAIL_FROM': '',
     'ARENAOPS_MAIL_FROM_NAME': 'ArenaOps', 'ARENAOPS_MAIL_REPLY_TO': '',
@@ -60,7 +60,7 @@ def configuration(values):
     common = {key: values[key] for key in REQUIRED}
     common.update(ARENA_ENV=environment, KC_REALM=realm, KC_BASE_URL='http://' + environment + '-keycloak:8080/auth',
                   KC_AUTH_URL=origin + '/auth', KC_JWK_SET_URI='http://' + environment + '-keycloak:8080/auth/realms/' + realm + '/protocol/openid-connect/certs',
-                  KC_ISSUER_URI=origin + '/auth/realms/' + realm, APP_ADMIN_USERNAMES=values.get('APP_ADMIN_USERNAMES', ''))
+                  KC_ISSUER_URI=origin + '/auth/realms/' + realm)
     core = dict(common, **{key: values.get(key) or default for key, default in OPTIONAL_DEFAULTS.items()})
     core.update(ARENA_DB_HOST=environment + '-postgres', ARENAOPS_FRONTEND_URL=origin, APP_BASE_URL=origin)
     if core['ARENAOPS_MAIL_ENABLED'] not in ('true', 'false'):

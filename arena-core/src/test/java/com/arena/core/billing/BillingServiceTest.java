@@ -24,7 +24,7 @@ class BillingServiceTest {
   BillingAttemptRepository attempts = mock(BillingAttemptRepository.class);
   BillingPricing pricing = new BillingPricing(new BigDecimal("1000"), new BigDecimal("10000"), new BigDecimal("0.18"));
   BillingService service = new BillingService(mock(jakarta.persistence.EntityManager.class),users,customers,subscriptions,payments,orders,attempts,pricing,
-      new MockPaymentGateway(),new AdminAuthorizationService("admin"));
+      new MockPaymentGateway(),new AdminAuthorizationService());
   Jwt jwt = Jwt.withTokenValue("test").header("alg","none").subject("owner").claim("preferred_username","owner").build();
   CustomerEntity customer;
   CustomerSubscriptionEntity subscription;

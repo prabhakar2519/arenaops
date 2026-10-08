@@ -48,8 +48,6 @@ keycloak-admin:
   client-secret: ${KC_BFF_CLIENT_SECRET}
 
 app:
-  admin:
-    usernames: ${APP_ADMIN_USERNAMES:}
   email:
     enabled: ${ARENAOPS_MAIL_ENABLED:true}
     from: ${ARENAOPS_MAIL_FROM:noreply@arenaops.in}

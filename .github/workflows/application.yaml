@@ -223,7 +223,6 @@ jobs:
           ARENA_DB_USERNAME: ${{ secrets.ARENA_DB_USERNAME }}
           ARENA_DB_PASSWORD: ${{ secrets.ARENA_DB_PASSWORD }}
           KC_BFF_CLIENT_SECRET: ${{ secrets.KC_BFF_CLIENT_SECRET }}
-          APP_ADMIN_USERNAMES: ${{ vars.APP_ADMIN_USERNAMES }}
           ARENAOPS_MAIL_ENABLED: ${{ vars.ARENAOPS_MAIL_ENABLED }}
           BREVO_SMTP_HOST: ${{ vars.BREVO_SMTP_HOST }}
           BREVO_SMTP_PORT: ${{ vars.BREVO_SMTP_PORT }}
