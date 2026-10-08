@@ -11,6 +11,23 @@ on:
     branches:
       - main
   workflow_dispatch:
+    inputs:
+      environment:
+        description: Deployment target
+        required: true
+        type: choice
+        default: sit
+        options: [sit, production]
+      operation:
+        description: Validate or deploy
+        required: true
+        type: choice
+        default: validate
+        options: [validate, deploy]
+      confirmation:
+        description: Type DEPLOY when operation is deploy
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -23,12 +40,46 @@ concurrency:
 jobs:
   validate:
     name: Build and test
+    outputs:
+      target_environment: ${{ steps.policy.outputs.target_environment }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
+      - name: Validate deployment request and resolve target
+        id: policy
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          SELECTED_REF: ${{ github.ref }}
+          MANUAL_ENVIRONMENT: ${{ inputs.environment }}
+          MANUAL_OPERATION: ${{ inputs.operation }}
+          MANUAL_CONFIRMATION: ${{ inputs.confirmation }}
+        run: |
+          set -euo pipefail
+          target=""
+          if [[ "$EVENT_NAME" == workflow_dispatch ]]; then
+            case "$MANUAL_OPERATION" in
+              validate) ;;
+              deploy)
+                [[ "$MANUAL_CONFIRMATION" == DEPLOY ]] || { echo 'Manual deploy requires confirmation DEPLOY' >&2; exit 1; }
+                case "$MANUAL_ENVIRONMENT" in sit|production) target="$MANUAL_ENVIRONMENT" ;; *) exit 1 ;; esac
+                ;;
+              *) exit 1 ;;
+            esac
+          elif [[ "$EVENT_NAME" == push ]]; then
+            if [[ "$SELECTED_REF" == refs/heads/main ]]; then target=sit
+            elif [[ "$SELECTED_REF" == refs/heads/release/v* ]]; then target=production; fi
+          fi
+          if [[ "$target" == production ]]; then
+            [[ "$SELECTED_REF" =~ ^refs/heads/release/v[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]] || {
+              echo 'Production deployment requires a valid release/vX.Y.Z branch' >&2; exit 1;
+            }
+          fi
+          echo "target_environment=$target" >> "$GITHUB_OUTPUT"
+
       - name: Verify production approval policy
-        if: github.event_name == 'push' && startsWith(github.ref, 'refs/heads/release/v')
+        if: steps.policy.outputs.target_environment == 'production'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: ./deploy/verify-production-gate.sh
@@ -77,7 +128,7 @@ jobs:
   publish:
     name: Publish application images
     needs: validate
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/v'))
+    if: (github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/v'))) || (github.event_name == 'workflow_dispatch' && inputs.operation == 'deploy' && inputs.confirmation == 'DEPLOY')
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -90,10 +141,12 @@ jobs:
 
       - name: Derive immutable release coordinates
         id: release
+        env:
+          TARGET_ENVIRONMENT: ${{ needs.validate.outputs.target_environment }}
         shell: bash
         run: |
           set -euo pipefail
-          if [[ "$GITHUB_REF" == refs/heads/main ]]; then
+          if [[ "$TARGET_ENVIRONMENT" == sit ]]; then
             image_tag="sha-$GITHUB_SHA"
           else
             image_tag="${GITHUB_REF_NAME#release/}"
@@ -141,23 +194,23 @@ jobs:
 
   deploy:
     name: Deploy selected application environment
-    needs: publish
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/v'))
+    needs: [validate, publish]
+    if: (github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/v'))) || (github.event_name == 'workflow_dispatch' && inputs.operation == 'deploy' && inputs.confirmation == 'DEPLOY')
     runs-on: ubuntu-latest
-    environment: ${{ github.ref == 'refs/heads/main' && 'sit' || 'production' }}
+    environment: ${{ needs.validate.outputs.target_environment }}
     concurrency:
-      group: arenaops-${{ github.ref == 'refs/heads/main' && 'sit' || 'production' }}-application
+      group: arenaops-${{ needs.validate.outputs.target_environment }}-application
       cancel-in-progress: false
     steps:
       - uses: actions/checkout@v4
       - name: Recheck production approval policy before VPS access
-        if: startsWith(github.ref, 'refs/heads/release/v')
+        if: needs.validate.outputs.target_environment == 'production'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: ./deploy/verify-production-gate.sh
       - name: Deploy published application release with temporary runtime secrets
         env:
-          TARGET_ENVIRONMENT: ${{ github.ref == 'refs/heads/main' && 'sit' || 'production' }}
+          TARGET_ENVIRONMENT: ${{ needs.validate.outputs.target_environment }}
           IMAGE_TAG: ${{ needs.publish.outputs.image_tag }}
           VPS_HOST: ${{ secrets.VPS_HOST }}
           VPS_USERNAME: ${{ secrets.VPS_USERNAME }}
@@ -165,7 +218,7 @@ jobs:
           VPS_SSH_HOST_KEY: ${{ secrets.VPS_SSH_HOST_KEY }}
           GHCR_USERNAME: ${{ secrets.GHCR_USERNAME }}
           GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
-          ARENA_DB_SCHEMA: ${{ github.ref == 'refs/heads/main' && 'arena_sit' || 'arena' }}
+          ARENA_DB_SCHEMA: ${{ needs.validate.outputs.target_environment == 'sit' && 'arena_sit' || 'arena' }}
           ARENA_DB_NAME: ${{ secrets.ARENA_DB_NAME }}
           ARENA_DB_USERNAME: ${{ secrets.ARENA_DB_USERNAME }}
           ARENA_DB_PASSWORD: ${{ secrets.ARENA_DB_PASSWORD }}

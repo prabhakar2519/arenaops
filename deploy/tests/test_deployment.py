@@ -101,7 +101,7 @@ class DeploymentTests(unittest.TestCase):
         with self.assertRaisesRegex(config.ConfigError, 'ARENA_DB_SCHEMA is required'):
             config.configuration(values)
         workflow = (ROOT / '.github/workflows/application.yaml').read_text()
-        self.assertIn("ARENA_DB_SCHEMA: ${{ github.ref == 'refs/heads/main' && 'arena_sit' || 'arena' }}", workflow)
+        self.assertIn("ARENA_DB_SCHEMA: ${{ needs.validate.outputs.target_environment == 'sit' && 'arena_sit' || 'arena' }}", workflow)
 
     def test_runtime_writer_roundtrip_and_no_secret_logs(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -181,34 +181,57 @@ class DeploymentTests(unittest.TestCase):
     def test_workflow_event_matrix_and_environment_selection(self):
         workflow = (ROOT / '.github/workflows/application.yaml').read_text()
         for job in ('publish', 'deploy'):
-            section = workflow.split('\n  ' + job + ':')[1]
-            condition = re.search(r'^    if: (.+)$', section, re.MULTILINE).group(1)
-            for event, ref, expected in (
-                ('push', 'refs/heads/main', True),
-                ('push', 'refs/heads/release/v2.0.0', True),
-                ('push', 'refs/heads/feature/test', False),
-                ('pull_request', 'refs/pull/1/merge', False),
-                ('workflow_dispatch', 'refs/heads/main', False),
-                ('workflow_dispatch', 'refs/heads/release/v2.0.0', False),
-                ('release', 'refs/tags/v2.0.0', False),
-                ('push', 'refs/tags/v2.0.0', False),
+            condition = re.search(r'^    if: (.+)$', workflow.split('\n  ' + job + ':')[1], re.MULTILINE).group(1)
+            for event, ref, operation, confirmation, expected in (
+                ('push', 'refs/heads/main', '', '', True),
+                ('push', 'refs/heads/release/v2.0.0', '', '', True),
+                ('push', 'refs/heads/feature/test', '', '', False),
+                ('pull_request', 'refs/pull/1/merge', 'deploy', 'DEPLOY', False),
+                ('workflow_dispatch', 'refs/heads/main', 'validate', '', False),
+                ('workflow_dispatch', 'refs/heads/main', 'deploy', 'DEPLOY', True),
+                ('workflow_dispatch', 'refs/heads/main', 'deploy', '', False),
+                ('release', 'refs/tags/v2.0.0', '', '', False),
             ):
-                # Evaluate the actual checked-in event guard against representative GitHub events.
                 expression = condition.replace('github.event_name', repr(event)).replace('github.ref', repr(ref))
+                expression = expression.replace('inputs.operation', repr(operation)).replace('inputs.confirmation', repr(confirmation))
                 expression = expression.replace('&&', 'and').replace('||', 'or')
-                result = eval(expression, {'__builtins__': {}, 'startsWith': lambda value, prefix: value.startswith(prefix)})
-                self.assertEqual(result, expected, (job, event, ref))
-        self.assertIn("TARGET_ENVIRONMENT: ${{ github.ref == 'refs/heads/main' && 'sit' || 'production' }}", workflow)
+                self.assertEqual(eval(expression, {'__builtins__': {}, 'startsWith': lambda value, prefix: value.startswith(prefix)}), expected)
+
+    def test_manual_policy_confirmation_production_ref_and_targets(self):
+        workflow = (ROOT / '.github/workflows/application.yaml').read_text()
+        step = workflow.split('      - name: Validate deployment request and resolve target')[1].split('      - name:')[0]
+        script = textwrap.dedent(step.split('        run: |\n')[1])
+        for event, ref, target, operation, confirmation, expected in (
+            ('push', 'refs/heads/main', '', '', '', 'sit'),
+            ('push', 'refs/heads/release/v2.1.0', '', '', '', 'production'),
+            ('pull_request', 'refs/pull/1/merge', 'production', 'deploy', 'DEPLOY', ''),
+            ('workflow_dispatch', 'refs/heads/main', 'sit', 'validate', '', ''),
+            ('workflow_dispatch', 'refs/heads/feature/test', 'sit', 'deploy', 'DEPLOY', 'sit'),
+            ('workflow_dispatch', 'refs/heads/release/v2.1.0', 'sit', 'deploy', 'DEPLOY', 'sit'),
+            ('workflow_dispatch', 'refs/heads/main', 'sit', 'deploy', '', None),
+            ('workflow_dispatch', 'refs/heads/main', 'production', 'deploy', 'DEPLOY', None),
+            ('workflow_dispatch', 'refs/tags/v2.1.0', 'production', 'deploy', 'DEPLOY', None),
+            ('workflow_dispatch', 'refs/heads/release/vbad', 'production', 'deploy', 'DEPLOY', None),
+            ('workflow_dispatch', 'refs/heads/release/v2.1.0', 'production', 'deploy', 'DEPLOY', 'production'),
+        ):
+            with tempfile.TemporaryDirectory() as directory:
+                output = Path(directory) / 'output'
+                result = subprocess.run(['bash', '-c', script], env=dict(os.environ, EVENT_NAME=event,
+                    SELECTED_REF=ref, MANUAL_ENVIRONMENT=target, MANUAL_OPERATION=operation,
+                    MANUAL_CONFIRMATION=confirmation, GITHUB_OUTPUT=str(output)), capture_output=True)
+                self.assertEqual(result.returncode == 0, expected is not None)
+                if expected is not None:
+                    self.assertEqual(output.read_text().strip(), 'target_environment=' + expected)
 
     def test_published_coordinates_use_commit_sha_for_main_and_validate_release_versions(self):
         workflow = (ROOT / '.github/workflows/application.yaml').read_text()
         step = workflow.split('      - name: Derive immutable release coordinates')[1].split('      - uses:')[0]
         script = textwrap.dedent(step.split('        run: |\n')[1])
-        for branch, expected in (('main', 'sha-' + 'a' * 40), ('release/v2.1.0', 'v2.1.0'), ('release/not-a-version', None)):
+        for branch, target, expected in (('main', 'sit', 'sha-' + 'a' * 40), ('feature/test', 'sit', 'sha-' + 'a' * 40), ('release/v2.1.0', 'sit', 'sha-' + 'a' * 40), ('release/v2.1.0', 'production', 'v2.1.0'), ('release/not-a-version', 'production', None)):
             with tempfile.TemporaryDirectory() as directory:
                 output = Path(directory) / 'output'
                 result = subprocess.run(['bash', '-c', script], env=dict(os.environ,
-                    GITHUB_REF='refs/heads/' + branch, GITHUB_REF_NAME=branch, GITHUB_SHA='a' * 40,
+                    TARGET_ENVIRONMENT=target, GITHUB_REF='refs/heads/' + branch, GITHUB_REF_NAME=branch, GITHUB_SHA='a' * 40,
                     GITHUB_REPOSITORY='Example/ArenaOps', GITHUB_OUTPUT=str(output)), capture_output=True)
                 if expected is None:
                     self.assertNotEqual(result.returncode, 0)
@@ -220,14 +243,16 @@ class DeploymentTests(unittest.TestCase):
     def test_main_and_release_deploy_only_after_publish_and_no_infrastructure_mutation(self):
         workflow = (ROOT / '.github/workflows/application.yaml').read_text()
         deployment = workflow.split('\n  deploy:')[1]
-        self.assertIn("needs: publish", deployment)
+        self.assertIn("needs: [validate, publish]", deployment)
         self.assertIn("github.event_name == 'push'", deployment)
         self.assertIn("github.ref == 'refs/heads/main'", deployment)
         self.assertIn("startsWith(github.ref, 'refs/heads/release/v')", deployment)
-        self.assertIn("environment: ${{ github.ref == 'refs/heads/main' && 'sit' || 'production' }}", deployment)
+        self.assertIn("environment: ${{ needs.validate.outputs.target_environment }}", deployment)
         self.assertIn("IMAGE_TAG: ${{ needs.publish.outputs.image_tag }}", deployment)
-        self.assertNotIn("workflow_dispatch", deployment)
-        self.assertNotIn("inputs.", workflow)
+        self.assertIn("workflow_dispatch", deployment)
+        self.assertIn("if: needs.validate.outputs.target_environment == 'production'", deployment)
+        self.assertIn('group: arenaops-${{ needs.validate.outputs.target_environment }}-application', deployment)
+        self.assertIn("if: steps.policy.outputs.target_environment == 'production'", workflow)
         self.assertIn('image_tag="sha-$GITHUB_SHA"', workflow)
         self.assertIn('cancel-in-progress: false', deployment)
         for script in ('deploy-app.sh', 'deploy-from-actions.sh', 'remote-deploy.sh'):
