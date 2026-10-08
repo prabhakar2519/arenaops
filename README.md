@@ -38,7 +38,7 @@ Restart a backend after changing `.env`. DEV uses Keycloak at `http://localhost:
 
 Feature/bugfix pushes and pull requests into main run CI only. A push to `main` (including a merged PR) runs CI, publishes commit-SHA images and automatically deploys SIT using the `sit` GitHub Environment. A reviewed `release/vX.Y.Z` branch push runs CI, publishes version/SHA images and deploys PROD through the protected `production` Environment. Configure required reviewers and allow only `release/v*` branches on that Environment; keep SIT without approval gates for automatic deployment. Release runs fail closed if the production reviewer policy is missing or cannot be verified.
 
-Manual workflow runs validate only. GitHub Release creation and tag pushes are not deployment triggers; this repository uses release **branch pushes**. Infrastructure must already be healthy in each target environment before application deployment.
+Manual runs default to validation only. To deploy, select `operation=deploy`, the target environment, and enter confirmation `DEPLOY`. Manual SIT deployments from the selected ref publish `sha-${GITHUB_SHA}` images. Manual PROD deployments require a valid `release/vX.Y.Z` branch and the same protected production approval/reviewer policy as automatic release pushes; main, tags and invalid release branches are rejected before publishing. GitHub Release creation and tag pushes are not deployment triggers; this repository uses release **branch pushes**. Infrastructure must already be healthy in each target environment before application deployment.
 
 The UI image is identical across SIT and PROD. Its Nginx entrypoint writes only public environment/realm configuration to `arena-config.js`, served with `Cache-Control: no-store`. No backend/database/mail/registry secret is sent to the UI.
 
@@ -72,8 +72,23 @@ Caddy routes `/api` and `/api/*` to the matching BFF, the selected realm (`arena
 
 All table, column, index, sequence, foreign-key, precondition, SQL and rollback schema references use `${ARENA_DB_SCHEMA}`. The original changeSet IDs and paths remain intact; the schema-creation changeSet remains idempotent as well. Tracking tables stay in the configured application schema.
 
-The application workflow supplies `arena_sit` for main/SIT and `arena` for release/PROD. `deploy/write-runtime-env.py` includes the required property, and `deploy/config.py` rejects missing, blank or incorrect environment schema values before SSH/deployment. Core receives it through its private runtime env file; BFF/UI do not receive database configuration. Set the GitHub database-name secret in both application and infrastructure environments to the convention above, with matching credentials. No PROD database was changed or deployed.
+The application workflow supplies `arena_sit` for the resolved SIT target and `arena` for the resolved PROD target, including manual deployment. `deploy/write-runtime-env.py` includes the required property, and `deploy/config.py` rejects missing, blank or incorrect environment schema values before SSH/deployment. Core receives it through its private runtime env file; BFF/UI do not receive database configuration. Set the GitHub database-name secret in both application and infrastructure environments to the convention above, with matching credentials. No PROD database was changed or deployed.
 
 Run `./deploy/validate-db-schema.sh` for real PostgreSQL verification: it creates disposable local databases with no application schemas, runs all core tests including fresh/repeated startup and Hibernate schema validation, checks compatibility with an existing `arena` changelog/data fixture, and removes its container. Use `./deploy/validate-db-schema.sh -Dtest=DatabaseSchemaStartupTest,BillingPersistenceTest` for focused CI database checks. Only a random loopback port is published; test credentials are disposable. `./deploy/validate.sh` also checks changelog references and deployment schema injection.
 
 Changing a schema setting on an existing installation does not migrate tables or Liquibase history. DEV/SIT databases containing data under the old `arena` schema require a separate reviewed migration; this change targets clean bootstrap. Keep PROD configured as `arena` and review its actual changelog version/checksums and privileges before any future release. No checksum reset, data move or destructive migration is included.
+
+## Application pipeline event rules
+
+| Event / inputs | Result | Image tag | GitHub Environment |
+| --- | --- | --- | --- |
+| PR into main | Validate only | None | None |
+| Push/merge to main | Validate, publish, deploy | `sha-<commit>` | `sit` |
+| Push to valid `release/vX.Y.Z` | Validate/reviewer-policy check, publish, approval, deploy | `vX.Y.Z` plus SHA tag | `production` |
+| Manual `operation=validate` | Validate only | None | None |
+| Manual SIT `deploy` + `DEPLOY` | Validate, publish selected commit, deploy | `sha-<commit>` | `sit` |
+| Manual PROD `deploy` + `DEPLOY` on valid release branch | Validate/release-policy check, publish, approval, deploy | Release version plus SHA tag | `production` |
+
+For a manual deployment, choose the ref under GitHub Actions → Run workflow, select the environment and `deploy`, then type `DEPLOY`. Wrong confirmation fails before build/test jobs perform deployment work. Production permits only the existing release-branch policy; immutable tag deployment is not enabled. Required reviewers and `release/v*` deployment branch restrictions must remain configured on the `production` GitHub Environment. Both production paths check reviewer configuration before publishing and recheck after approval before VPS access.
+
+The validated target is passed to image tagging, GitHub Environment selection, schema/runtime injection and deployment concurrency (`arenaops-sit-application` or `arenaops-production-application`). Secrets still come from the selected Environment and temporary protected runtime files; deployment scripts and pinned SSH host verification are unchanged. No `latest` images are used and no production deployment was performed while implementing these rules.
