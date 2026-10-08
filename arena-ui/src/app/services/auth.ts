@@ -5,7 +5,7 @@ import { HttpClient } from '@angular/common/http';
 import { BehaviorSubject, Observable, defer } from 'rxjs';
 import { tap, timeout } from 'rxjs/operators';
 
-export type UserRole = 'ADMIN' | 'OWNER' | 'STAFF' | null;
+export type UserRole = 'ADMIN' | 'OWNER' | 'COACH' | 'STAFF' | null;
 
 export interface User {
   username?: string;

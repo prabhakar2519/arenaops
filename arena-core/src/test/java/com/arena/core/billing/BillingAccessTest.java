@@ -15,7 +15,7 @@ class BillingAccessTest {
   @Test void expiredOwnerCanAuthenticateButStaffAndSuspendedOwnerRemainDenied() {
     var jwt = Jwt.withTokenValue("test").header("alg","none").subject("owner").build();
     var users = mock(AppUserRepository.class); var access = mock(CustomerAccessService.class);
-    var authorization = new AdminAuthorizationService("admin");
+    var authorization = new AdminAuthorizationService();
     var controller = new AccessController(users,authorization,access);
     var owner = AppUserEntity.builder().role("OWNER").isActive(true).customerId(1L).build();
     when(users.findByUsername("owner")).thenReturn(Optional.of(owner));

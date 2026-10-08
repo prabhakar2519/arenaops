@@ -1,30 +1,15 @@
 package com.arena.core.service;
 
-import java.util.Arrays;
 import java.util.Collection;
-import java.util.Locale;
 import java.util.Map;
-import java.util.Set;
-import java.util.stream.Collectors;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
 
 @Service
 public class AdminAuthorizationService {
 
-  private final Set<String> adminUsernames;
-
-  public AdminAuthorizationService(@Value("${app.admin.usernames:}") String adminUsernamesConfig) {
-    this.adminUsernames = Arrays.stream(adminUsernamesConfig.split(","))
-        .map(String::trim)
-        .filter(value -> !value.isBlank())
-        .map(value -> value.toLowerCase(Locale.ROOT))
-        .collect(Collectors.toSet());
-  }
-
   public boolean isAdmin(Jwt jwt) {
-    return hasRealmRole(jwt, "ADMIN") || adminUsernames.contains(resolveUsername(jwt).toLowerCase(Locale.ROOT));
+    return hasRealmRole(jwt, "ADMIN");
   }
 
   public String resolveUsername(Jwt jwt) {
@@ -33,6 +18,7 @@ public class AdminAuthorizationService {
   }
 
   private boolean hasRealmRole(Jwt jwt, String role) {
+    if (jwt == null) return false;
     Object realmAccessClaim = jwt.getClaim("realm_access");
     if (!(realmAccessClaim instanceof Map<?, ?> realmAccess)) {
       return false;
@@ -43,6 +29,6 @@ public class AdminAuthorizationService {
       return false;
     }
 
-    return roles.stream().map(String::valueOf).anyMatch(existingRole -> existingRole.equalsIgnoreCase(role));
+    return roles.stream().map(String::valueOf).anyMatch(existingRole -> existingRole.equals(role));
   }
 }

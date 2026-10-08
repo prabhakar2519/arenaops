@@ -16,12 +16,8 @@ import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Base64;
 import java.util.List;
-import java.util.Locale;
-import java.util.Set;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -40,8 +36,6 @@ public class TokenService {
     @Value("${spring.security.oauth2.client.registration.keycloak.redirect-uri}")
     private String redirectUri;
 
-    @Value("${app.admin.usernames:}")
-    private String adminUsernamesConfig;
 
     private final RestTemplate restTemplate = identityClient();
 
@@ -184,16 +178,8 @@ public class TokenService {
                 }
             }
 
-            String primaryRole = roles.stream()
-                    .map(role -> role == null ? "" : role.trim().toUpperCase())
-                    .filter(r -> r.equals("ADMIN") || r.equals("OWNER") || r.equals("STAFF"))
-                    .findFirst()
-                    .orElse("USER");
-
-            if ("USER".equals(primaryRole) && configuredAdminUsernames().contains(username.toLowerCase(Locale.ROOT))) {
-                primaryRole = "ADMIN";
-                roles.add("ADMIN");
-            }
+            String primaryRole = List.of("ADMIN", "OWNER", "COACH", "STAFF").stream()
+                    .filter(roles::contains).findFirst().orElse("USER");
 
             return UserInfo.builder()
                     .username(username)
@@ -208,11 +194,4 @@ public class TokenService {
         }
     }
 
-    private Set<String> configuredAdminUsernames() {
-        return Arrays.stream(adminUsernamesConfig.split(","))
-                .map(String::trim)
-                .filter(value -> !value.isBlank())
-                .map(value -> value.toLowerCase(Locale.ROOT))
-                .collect(Collectors.toSet());
-    }
 }
