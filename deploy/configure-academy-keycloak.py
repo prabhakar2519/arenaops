@@ -4,6 +4,7 @@ Mount the built academy provider into /opt/keycloak/providers and the themes int
 Secrets are read only from environment and never printed.
 """
 import argparse,json,os,urllib.request,urllib.parse
+from keycloak_subject_scope import ensure_subject_scope
 p=argparse.ArgumentParser();p.add_argument('--url',required=True);p.add_argument('--realm',required=True);p.add_argument('--public-url',required=True);args=p.parse_args()
 def request(path,method='GET',data=None,token=None):
  body=None if data is None else json.dumps(data).encode()
@@ -15,6 +16,8 @@ req=urllib.request.Request(args.url.rstrip('/')+'/realms/'+args.realm+'/protocol
 try:
  with urllib.request.urlopen(req,timeout=15) as r:token=json.load(r)['access_token']
  base='/admin/realms/'+args.realm
+ # Existing realms need this too; imports do not update their client scopes.
+ ensure_subject_scope(lambda path, method='GET', data=None: request(path,method,data,token),args.realm,apply=True)
  providers=request(base+'/authentication/unregistered-required-actions',token=token)
  actions=request(base+'/authentication/required-actions',token=token)
  if not any(a.get('alias')=='ARENA_STAFF_SETUP' for a in actions):
