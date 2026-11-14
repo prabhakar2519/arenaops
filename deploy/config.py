@@ -8,10 +8,10 @@ import shlex
 import stat
 import sys
 
-REQUIRED = ('ARENA_DB_SCHEMA', 'ARENA_DB_NAME', 'ARENA_DB_USERNAME', 'ARENA_DB_PASSWORD', 'KC_BFF_CLIENT_SECRET')
+REQUIRED = ('ARENA_DB_SCHEMA', 'ARENA_DB_NAME', 'ARENA_DB_USERNAME', 'ARENA_DB_PASSWORD', 'KC_BFF_CLIENT_SECRET', 'PUBLIC_CLUB_HOST_KEY')
 OPTIONAL_DEFAULTS = {
     'PUBLIC_CLUB_PREVIEW_ENABLED': 'false', 'PUBLIC_CLUB_HOSTING_READY': 'false',
-    'PUBLIC_CLUB_HOST_KEY': '', 'PUBLIC_CLUB_DOMAIN': 'arenaops.in',
+    'PUBLIC_CLUB_DOMAIN': 'arenaops.in',
     'PUBLIC_CLUB_SCHEME': 'https', 'PUBLIC_CLUB_PORT': '',
     'ARENAOPS_MAIL_ENABLED': 'false',
     'BREVO_SMTP_HOST': 'smtp-relay.brevo.com', 'BREVO_SMTP_PORT': '587',
@@ -75,8 +75,9 @@ def configuration(values):
     login = {key: value for key, value in common.items() if not key.startswith('ARENA_DB_') and key != 'KC_BFF_CLIENT_SECRET'}
     login.update(APP_BASE_URL=origin, APP_CORS_ALLOWED_ORIGINS=origin, SESSION_COOKIE_SECURE='true', ARENA_CORE_URL='http://' + environment + '-arena-core:7701')
     public = {key: values.get(key) or OPTIONAL_DEFAULTS[key] for key in OPTIONAL_DEFAULTS if key.startswith('PUBLIC_CLUB_')}
-    if public['PUBLIC_CLUB_HOST_KEY'] and len(public['PUBLIC_CLUB_HOST_KEY']) < 32:
-        raise ConfigError('PUBLIC_CLUB_HOST_KEY must be empty (disabled) or at least 32 characters')
+    public['PUBLIC_CLUB_HOST_KEY'] = values['PUBLIC_CLUB_HOST_KEY']
+    if len(public['PUBLIC_CLUB_HOST_KEY']) < 32:
+        raise ConfigError('PUBLIC_CLUB_HOST_KEY must be at least 32 characters for QR check-in')
     if public['PUBLIC_CLUB_PREVIEW_ENABLED'] not in ('true', 'false') or public['PUBLIC_CLUB_HOSTING_READY'] not in ('true', 'false'):
         raise ConfigError('Public website feature flags must be true or false')
     if environment == 'prod' and public['PUBLIC_CLUB_PREVIEW_ENABLED'] == 'true':

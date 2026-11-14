@@ -19,6 +19,7 @@ class DeploymentTests(unittest.TestCase):
     def values(self, environment='sit', **overrides):
         values = {key: 'validation' for key in config.REQUIRED}
         values.update(ARENA_DB_NAME=config.SCHEMAS.get(environment, 'arena_dev'), ARENA_DB_SCHEMA=config.SCHEMAS.get(environment, 'arena_dev'), ARENA_ENV=environment, IMAGE_REPOSITORY='ghcr.io/example/arenaops', IMAGE_TAG='v1.9.0')
+        values['PUBLIC_CLUB_HOST_KEY'] = 'synthetic-qr-signing-key-for-validation-only'
         values.update(overrides)
         return values
 
@@ -28,17 +29,23 @@ class DeploymentTests(unittest.TestCase):
         path.chmod(0o600)
         return path
 
-    def test_public_host_signing_disabled_by_default_and_shared_only_with_bff_core(self):
+    def test_public_host_signing_is_required_and_shared_only_with_bff_core(self):
         core, login, compose = config.configuration(self.values())
-        self.assertEqual('', core['PUBLIC_CLUB_HOST_KEY'])
-        self.assertEqual('', login['PUBLIC_CLUB_HOST_KEY'])
+        self.assertEqual(core['PUBLIC_CLUB_HOST_KEY'], login['PUBLIC_CLUB_HOST_KEY'])
+        self.assertEqual('false', core['PUBLIC_CLUB_PREVIEW_ENABLED'])
+        self.assertEqual('false', core['PUBLIC_CLUB_HOSTING_READY'])
         key = 'k' * 48
         core, login, compose = config.configuration(self.values(PUBLIC_CLUB_HOST_KEY=key))
         self.assertEqual(key, core['PUBLIC_CLUB_HOST_KEY'])
         self.assertEqual(key, login['PUBLIC_CLUB_HOST_KEY'])
         self.assertNotIn('PUBLIC_CLUB_HOST_KEY', compose)
-        with self.assertRaises(config.ConfigError):
-            config.configuration(self.values(PUBLIC_CLUB_HOST_KEY='short'))
+        for invalid in ('', 'short', ' '*32):
+            with self.subTest(invalid=invalid), self.assertRaises(config.ConfigError):
+                config.configuration(self.values(PUBLIC_CLUB_HOST_KEY=invalid))
+        missing = self.values()
+        del missing['PUBLIC_CLUB_HOST_KEY']
+        with self.assertRaisesRegex(config.ConfigError, 'PUBLIC_CLUB_HOST_KEY is required'):
+            config.configuration(missing)
 
     def test_public_path_preview_is_opt_in_and_cannot_ship_to_production(self):
         core, login, _ = config.configuration(self.values('sit', PUBLIC_CLUB_PREVIEW_ENABLED='true'))
@@ -133,6 +140,17 @@ class DeploymentTests(unittest.TestCase):
                                     env=dict(os.environ, **values), check=True, capture_output=True, text=True)
             self.assertEqual(config.load_runtime(path)['KC_BFF_CLIENT_SECRET'], secret)
             self.assertNotIn(secret, result.stdout + result.stderr)
+
+    def test_runtime_writer_rejects_missing_qr_secret_before_writing_credentials(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'runtime.env'
+            values = self.values(GHCR_USERNAME='validation', GHCR_TOKEN='validation-token', PUBLIC_CLUB_HOST_KEY='')
+            result = subprocess.run(['python3', str(ROOT / 'deploy/write-runtime-env.py'), str(path)],
+                                    env=dict(os.environ, **values), capture_output=True, text=True)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn('PUBLIC_CLUB_HOST_KEY is required', result.stderr)
+            self.assertFalse(path.exists())
+            self.assertNotIn('validation-token', result.stdout + result.stderr)
 
     def test_remote_failure_cleans_temporary_credentials(self):
         before = set(Path('/dev/shm').glob('arenaops-app.*'))

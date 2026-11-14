@@ -44,6 +44,9 @@ Manual runs default to validation only. To deploy, select `operation=deploy`, th
 
 The UI image is identical across SIT and PROD. Its Nginx entrypoint writes only public environment/realm configuration to `arena-config.js`, served with `Cache-Control: no-store`. No backend/database/mail/registry secret is sent to the UI.
 
+Public QR check-in requires a cryptographically random `PUBLIC_CLUB_HOST_KEY` of at least 32 characters in each application's GitHub Environment (`sit` / `production`). Core and BFF receive the same environment-specific secret; the browser never receives it. This is required even while Public Club Website and public reservation requests are disabled. Use independent keys for SIT and PROD. Deployment validation now rejects a missing/short key before SSH or service changes. Configuring this key does not rotate facility QR identities or publish club websites.
+
+
 Detailed deployment and authentication notes are maintained locally in the ignored `docs/` directory.
 
 ## Validation
