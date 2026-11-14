@@ -9,4 +9,5 @@ import org.springframework.stereotype.Repository;
 public interface AuditEventRepository extends JpaRepository<AuditEventEntity, Long> {
 
   List<AuditEventEntity> findByCustomerIdOrderByOccurredAtDesc(Long customerId);
+  List<AuditEventEntity> findTop200ByCustomerIdAndMetadataAndEventTypeStartingWithOrderByOccurredAtDescIdDesc(Long customerId,String metadata,String prefix);
 }

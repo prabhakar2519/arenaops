@@ -1,0 +1,8 @@
+<dialog #dialog class="ao-dialog" [attr.aria-labelledby]="id+'-title'" [attr.aria-describedby]="id+'-message'" [attr.aria-busy]="busy" [attr.data-variant]="options.variant||'primary'" (cancel)="onCancel($event)" (keydown)="key($event)">
+ <header><span *ngIf="options.icon" class="dialog-icon" aria-hidden="true">{{options.icon}}</span><h2 [id]="id+'-title'">{{options.title}}</h2></header>
+ <p [id]="id+'-message'">{{options.message}}</p>
+ <ul *ngIf="options.details?.length" class="dialog-details"><li *ngFor="let detail of options.details">{{detail}}</li></ul>
+ <p *ngIf="error" class="dialog-error" role="alert">{{error}}</p>
+ <p *ngIf="busy" role="status">Saving… Please wait.</p>
+ <footer><button *ngIf="!options.acknowledge" type="button" data-cancel (click)="dismiss.emit()" [disabled]="busy">{{options.cancelText||'Cancel'}}</button><button type="button" data-confirm class="dialog-confirm" (click)="proceed.emit()" [disabled]="busy || !retryAllowed">{{busy?'Saving…':options.confirmText||'Confirm'}}</button></footer>
+</dialog>

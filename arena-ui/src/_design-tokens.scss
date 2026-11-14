@@ -1,0 +1,105 @@
+/* ArenaOps Design System v1.0. Keep this after legacy shared styles. */
+@font-face {
+  font-family:Inter;
+  src:url('/fonts/Inter-variable.ttf') format('truetype');
+  font-style:normal;
+  font-weight:100 900;
+  font-display:swap;
+}
+:root {
+  --font-main:Inter,system-ui,-apple-system,'Segoe UI',sans-serif;
+  --font-heading:var(--font-main);
+  --font-logo:var(--font-main);
+  --text-title:26px;
+  --text-section:18px;
+  --text-sidebar:14px;
+  --text-card:16px;
+  --text-body:14px;
+  --text-label:14px;
+  --text-sm:14px;
+  --text-xs:14px;
+  --text-kpi:26px;
+  --weight-normal:400;
+  --weight-medium:500;
+  --weight-semibold:600;
+  --weight-bold:700;
+  --color-primary:#087F65;
+  --color-amber:#B76511;
+  --color-red:#C43D3D;
+  --state-running:var(--color-primary);
+  --state-paused:var(--color-amber);
+  --state-reserved:#3974B8;
+  --on-image-accent:#66d6b5;
+}
+body.light,body.dark-green,body.light.badminton-page,body.dark-green.badminton-page {
+  --brand:var(--color-primary);
+  --brand-hover:#066a54;
+  --brand-soft:#f0f8f4;
+  --on-primary:#fff;
+  --danger:var(--color-red);
+  --danger-soft:#fff3f3;
+  --danger-soft-hover:#ffeded;
+  --on-danger:#fff;
+  /* Exact amber is suitable for graphics; darker ink meets AA for small text. */
+  --warning:#9b580e;
+  --warning-accent:var(--color-amber);
+  --warning-soft:#fff1db;
+  --border-control:#7a8994;
+  --running-ink:var(--brand);
+  --running-soft:color-mix(in srgb,var(--brand) 7%,var(--bg-card));
+  --reserved-ink:#3268a6;
+  --reserved-soft:color-mix(in srgb,var(--state-reserved) 8%,var(--bg-card));
+  --operations-warm:var(--warning);
+  --operations-warm-soft:var(--warning-soft);
+  --operations-button-ink:var(--on-primary);
+  --operations-emphasis:var(--brand);
+  --operations-emphasis-border:var(--brand);
+  --accent-primary:var(--brand);
+  --accent-primary-hover:var(--brand-hover);
+  --accent-success:var(--brand);
+  --accent-danger:var(--danger);
+  --snooker-green:var(--brand);
+  --snooker-green-light:var(--brand);
+  --snooker-green-dark:var(--brand-hover);
+  --text-inverse:var(--on-primary);
+}
+body.dark-green,body.dark-green.badminton-page {
+  --brand:#66d6b5;
+  --brand-hover:#8be3c9;
+  --brand-soft:#193e32;
+  --on-primary:#102d23;
+  --danger:#ff9696;
+  --danger-soft:#4a2528;
+  --danger-soft-hover:#572b2f;
+  --on-danger:#302023;
+  --warning:#edb66b;
+  --warning-accent:#edb66b;
+  --warning-soft:#493e23;
+  --border-control:#849c90;
+  --running-ink:var(--brand);
+  --reserved-ink:#9fc5f5;
+}
+body { font-family:var(--font-main);font-size:var(--text-body);font-weight:400; }
+h1 { font-size:var(--text-title);font-weight:700; }
+h2 { font-size:var(--text-section);font-weight:600; }
+h3 { font-size:var(--text-card);font-weight:600; }
+button,input,select,textarea { font-family:var(--font-main); }
+button,.btn { font-weight:600; }
+.page-heading h1 { font-size:var(--text-title);font-weight:700; }
+.panel h2,.drawer-panel h2 { font-size:var(--text-section);font-weight:600; }
+.data-table th,.data-table td { font-size:var(--text-body); }
+.data-table td { font-weight:400; }
+.btn-primary,.ao-workspace button.btn-primary { color:var(--on-primary)!important; }
+.brand-mark { color:var(--on-primary); }
+:where(input:not([type=checkbox]):not([type=radio]),select,textarea) { border-color:var(--border-control); }
+.ao-workspace input:not([type=checkbox]),.ao-workspace select,.ao-workspace textarea { border-color:var(--border-control); }
+:where(input,select,textarea)[aria-invalid=true],.form-grid input.ng-invalid.ng-touched { border-color:var(--danger); }
+:where(input,select,textarea):focus-visible { outline-color:var(--brand); }
+
+/* Semantic field states override normal component boundaries, without changing geometry. */
+:is(input,select,textarea).ng-invalid.ng-touched,
+:is(input,select,textarea)[aria-invalid=true] { border-color:var(--danger)!important; }
+.workspace-sidebar .sidebar-caption { font-size:var(--text-sidebar);font-weight:600; }
+.notice.warning,.feedback.warning { color:var(--warning);border-color:var(--warning-accent); }
+.data-table .cell-title { font-weight:500; }
+table th,.data-table th { font-weight:var(--weight-medium); }

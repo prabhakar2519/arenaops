@@ -30,9 +30,9 @@
 .form-heading p,
 .panel-heading p {
   margin: 0 0 0.5rem;
-  color: #67e8c9;
-  font-size: 0.78rem;
-  font-weight: 800;
+  color: var(--brand);
+  font-size:var(--text-body);
+  font-weight:700;
   letter-spacing: 0.14em;
   text-transform: uppercase;
 }
@@ -42,12 +42,12 @@
 .panel-heading h2 {
   margin: 0;
   color: #ffffff;
-  font-family: 'Playfair Display', serif;
+  font-family: var(--font-heading);
 }
 
 .admin-hero h1 {
   max-width: 680px;
-  font-size: clamp(2rem, 5vw, 4.2rem);
+  font-size:var(--text-title);
   line-height: 0.98;
 }
 
@@ -55,7 +55,7 @@
 .message {
   padding: 0.72rem 0.9rem;
   border-radius: 8px;
-  font-weight: 800;
+  font-weight:700;
 }
 
 .admin-state {
@@ -68,13 +68,13 @@
 }
 
 .message.success {
-  border: 1px solid #22c55e;
-  color: #22c55e;
+  border: 1px solid var(--brand);
+  color: var(--brand);
 }
 
 .message.error {
-  border: 1px solid #ef4444;
-  color: #ef4444;
+  border: 1px solid var(--danger);
+  color: var(--danger);
 }
 
 .metric-grid {
@@ -92,14 +92,14 @@
 .customer-grid span {
   display: block;
   color: var(--text-muted);
-  font-size: 0.78rem;
+  font-size:var(--text-body);
 }
 
 .metric-grid strong {
   display: block;
   margin-top: 0.5rem;
   color: var(--accent-primary);
-  font-size: 1.45rem;
+  font-size:var(--text-body);
 }
 
 .admin-layout {
@@ -123,7 +123,7 @@
 .form-heading h2,
 .panel-heading h2 {
   color: var(--text-main);
-  font-size: 1.55rem;
+  font-size:var(--text-section);
 }
 
 label,
@@ -132,7 +132,7 @@ label,
   gap: 0.42rem;
   color: var(--text-main);
   font-weight: 700;
-  font-size: 0.88rem;
+  font-size:var(--text-body);
 }
 
 input,
@@ -141,7 +141,7 @@ textarea {
   width: 100%;
   min-height: 42px;
   padding: 0.72rem 0.82rem;
-  border: 1px solid var(--border-main);
+  border: 1px solid var(--border-control);
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.06);
   color: var(--text-main);
@@ -183,7 +183,7 @@ button {
   border-radius: 8px;
   background: var(--accent-primary);
   color: var(--text-inverse);
-  font-weight: 800;
+  font-weight:700;
   cursor: pointer;
 }
 
@@ -193,9 +193,9 @@ button:disabled {
 }
 
 button.danger {
-  border-color: #ef4444;
-  background: #ef4444;
-  color: #ffffff;
+  border-color: var(--danger);
+  background: var(--danger);
+  color: var(--on-danger);
 }
 
 .customer-panel {
@@ -219,26 +219,26 @@ button.danger {
 .customer-name {
   margin: 0 0 0.25rem;
   color: var(--text-main);
-  font-size: 1rem;
-  font-weight: 900;
+  font-size:var(--text-body);
+  font-weight:700;
 }
 
 .customer-main span {
   color: var(--text-muted);
-  font-size: 0.84rem;
+  font-size:var(--text-body);
 }
 
 .customer-main > strong {
-  color: #22c55e;
-  font-size: 0.78rem;
+  color: var(--brand);
+  font-size:var(--text-body);
 }
 
 .customer-main > strong.warn {
-  color: #f59e0b;
+  color: var(--warning);
 }
 
 .customer-main > strong.bad {
-  color: #ef4444;
+  color: var(--danger);
 }
 
 .customer-grid {
@@ -259,13 +259,13 @@ button.danger {
   border: 1px solid var(--border-light);
   border-radius: 999px;
   color: var(--text-muted);
-  font-size: 0.78rem;
+  font-size:var(--text-body);
   padding: 0.35rem 0.55rem;
 }
 
 .status-strip strong {
   color: var(--text-main);
-  font-size: 0.78rem;
+  font-size:var(--text-body);
   margin-left: 0.25rem;
 }
 
@@ -279,7 +279,7 @@ button.danger {
   display: block;
   margin-top: 0.35rem;
   color: var(--text-main);
-  font-size: 0.88rem;
+  font-size:var(--text-body);
   overflow-wrap: anywhere;
 }
 
@@ -302,7 +302,7 @@ button.danger {
 .customer-sports > span {
   margin-right: auto;
   color: var(--text-muted);
-  font-size: 0.82rem;
+  font-size:var(--text-body);
   font-weight: 700;
 }
 
@@ -341,7 +341,7 @@ button.danger {
   padding: 1.4rem;
   border: 1px solid var(--border-light);
   border-radius: 14px;
-  background: var(--card-bg, var(--surface-elevated, #ffffff));
+  background: var(--bg-card);
   box-shadow: 0 24px 70px rgba(0, 0, 0, 0.38);
   color: var(--text-main);
 }
@@ -357,8 +357,8 @@ button.danger {
 .modal-heading p {
   margin: 0 0 0.25rem;
   color: var(--text-muted);
-  font-size: 0.75rem;
-  font-weight: 800;
+  font-size:var(--text-body);
+  font-weight:700;
   text-transform: uppercase;
   letter-spacing: 0.08em;
 }
@@ -373,7 +373,7 @@ button.danger {
   border: 0;
   background: transparent;
   color: var(--text-main);
-  font-size: 1.6rem;
+  font-size:var(--text-body);
 }
 
 .modal-copy {
@@ -430,9 +430,16 @@ button.danger {
   }
 }
 .field-error {
-  color: #b42318;
+  color: var(--danger);
 }
 .message.warning {
-  border: 1px solid #b7791f;
-  color: #b7791f;
+  border: 1px solid var(--warning);
+  color: var(--warning);
 }
+
+/* Shared typography without changing administration workflows or layout. */
+.admin-page{font-family:var(--font-main);font-size:var(--text-body);line-height:var(--leading-body)}.admin-hero h1{line-height:var(--leading-heading)}.metric-grid span,.customer-grid span,.customer-card p{font-size:var(--text-sm)}.admin-form label{font-size:var(--text-label);font-weight:var(--weight-semibold)}input,select,textarea,button{font-size:var(--text-label)}.form-heading h2,.panel-heading h2{font-size:var(--text-section);line-height:var(--leading-heading)}.modal-heading h2{font-family:var(--font-heading);font-size:var(--text-section)}
+
+.admin-hero p { color:var(--on-image-accent); }
+
+.metric-grid strong { font-size:var(--text-kpi);font-weight:700; }

@@ -68,15 +68,11 @@ export class HomeComponent implements OnInit, OnDestroy {
       return;
     }
 
-    this.updateSlidesForCurrentUser();
-    this.slideshowSubscription = interval(5000).subscribe(() => {
-      this.nextSlide();
-    });
     if (this.authService.isAuthenticated()) {
-      this.snapshotRefreshSubscription = interval(30000).subscribe(() => {
-        this.loadSportSnapshots(this.authService.parloursValue);
-      });
+      void this.router.navigate(['/academy/dashboard'], { replaceUrl: true });
+      return;
     }
+    this.slideshowSubscription = interval(5000).subscribe(() => this.nextSlide());
   }
 
   ngOnDestroy() {
@@ -86,51 +82,6 @@ export class HomeComponent implements OnInit, OnDestroy {
 
   nextSlide() {
     this.currentSlide = (this.currentSlide + 1) % this.slides.length;
-  }
-
-  private updateSlidesForCurrentUser() {
-    if (!this.authService.isAuthenticated()) {
-      this.slides = [...this.allSlides];
-      this.bannerTitle = 'ARENAOPS';
-      this.bannerSubtitle = 'Manage snooker tables and badminton courts from one smooth sports workspace.';
-      this.sportSnapshots = [];
-      return;
-    }
-
-    this.authService.fetchParlours().subscribe({
-      next: (parlours) => {
-        const preferredParlour = this.resolvePreferredParlour(parlours || []);
-        if (preferredParlour) {
-          this.authService.setParlourName(preferredParlour.name);
-        }
-        const sports = [...new Set(
-          (parlours || [])
-            .map(parlour => (parlour.sport || 'SNOOKER').trim().toUpperCase())
-            .filter(Boolean)
-        )];
-
-        this.bannerTitle = preferredParlour?.name || 'ARENAOPS';
-        this.bannerSubtitle = this.buildBannerSubtitle(parlours || [], sports);
-
-        if (sports.length === 1) {
-          this.slides = this.allSlides.filter(slide => slide.sport === sports[0]);
-        } else if (sports.length > 1) {
-          this.slides = [...this.allSlides];
-        } else {
-          this.slides = [...this.allSlides];
-        }
-
-        this.currentSlide = 0;
-        this.loadSportSnapshots(parlours || []);
-      },
-      error: () => {
-        this.slides = [...this.allSlides];
-        this.bannerTitle = 'ARENAOPS';
-        this.bannerSubtitle = 'Manage snooker tables and badminton courts from one smooth sports workspace.';
-        this.sportSnapshots = [];
-        this.currentSlide = 0;
-      }
-    });
   }
 
   get hasSnapshots(): boolean {

@@ -1,0 +1,88 @@
+{
+  "date": "2026-11-14",
+  "scope": [
+    "ENH-009",
+    "ENH-010"
+  ],
+  "frontend": {
+    "command": "npm --prefix arena-ui test",
+    "tests": 204,
+    "failures": 0
+  },
+  "angularBuild": {
+    "command": "npm --prefix arena-ui run build",
+    "passed": true
+  },
+  "playwrightTypecheck": {
+    "command": "npm --prefix arena-ui run e2e:typecheck",
+    "passed": true
+  },
+  "backend": {
+    "core": {
+      "PublicClubsIntegrationTest": 45,
+      "FacilityCheckinIntegrationTest": 15,
+      "PublicHostContractTest": 5,
+      "PublicCheckinRateLimitTest": 2
+    },
+    "login": {
+      "PublicCheckinProxyTest": 14
+    },
+    "failures": 0
+  },
+  "apiDocumentation": {
+    "command": "bash scripts/export-openapi.sh --update",
+    "tests": 6,
+    "failures": 0,
+    "coreOperations": 133,
+    "loginOperations": 21,
+    "schemaAndSourceManifestValidation": true
+  },
+  "browser": {
+    "projects": [
+      "desktop-light",
+      "tablet-dark"
+    ],
+    "fullRegression": {
+      "tests": 172,
+      "passed": 167,
+      "failed": 5
+    },
+    "failedCases": [
+      "UI-09 desktop-light",
+      "UI-09 tablet-dark",
+      "UI-11 desktop-light",
+      "UI-11 tablet-dark",
+      "UI-22 tablet-dark"
+    ],
+    "cause": "Stale test selectors/expectations: frozen bill container vs value, renamed settlement input, and mobile menu accessible name. Test-only corrections; no application session changes. Earlier run also exposed outdated type casing, duplicate global attention text and old quote-container expectation.",
+    "finalFocusedRerun": {
+      "tests": 24,
+      "passed": 24,
+      "failed": 0,
+      "includes": "All ENH-009 and ENH-010 cases plus UI-09, UI-11 and UI-22 in both projects"
+    },
+    "uniqueCasesPassingAcrossFinalRuns": 172,
+    "qrPreviewContentsDecoded": true,
+    "downloadFilenameAndPngVerified": true,
+    "selectedFacilityPrintContentsVerified": true,
+    "mobileWidth": 390,
+    "screenshotsInspected": true
+  },
+  "diffWhitespaceCheck": true,
+  "databaseMigration": false,
+  "deployed": false,
+  "limitations": [
+    "Browser API responses are synthetic; backend tests use isolated fixtures.",
+    "Physical printer output and live PROD/SIT DNS/TLS are not tested.",
+    "Shared public check-in requires the existing matching Core/BFF public-host signing key.",
+    "Tenant subdomains require DNS/TLS and PUBLIC_CLUB_HOSTING_READY."
+  ],
+  "unchanged": [
+    "Session and billing formulas",
+    "Existing facility/session card styles and dimensions",
+    "Pricing and immutable facility IDs",
+    "Authentication and authorization",
+    "Public website MVP flags",
+    "Reservation rules"
+  ]
+}

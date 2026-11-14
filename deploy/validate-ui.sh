@@ -14,7 +14,7 @@ sh /40-arena-config.sh
 nginx -t
 nginx >/tmp/arena-nginx-validation.log 2>&1
 trap 'nginx -s quit >/dev/null 2>&1' EXIT
-for path in / /login/callback /dashboard /register /admin /billing /nested/route/; do
+for path in / /login/callback /dashboard /register /admin /billing /academy/sports /academy/staff /academy/batches /nested/route/; do
   wget -q -O - "http://127.0.0.1$path" | grep -q 'src="/arena-config.js"'
 done
 config="$(wget -q -O - http://127.0.0.1/arena-config.js)"

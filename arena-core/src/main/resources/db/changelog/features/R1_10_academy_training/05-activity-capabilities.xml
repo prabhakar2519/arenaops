@@ -1,0 +1,10 @@
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.17.xsd">
+ <changeSet id="optional-activity-capabilities-v1" author="arena" dbms="postgresql">
+  <sql splitStatements="false"><![CDATA[
+DO $$ DECLARE restriction record; BEGIN
+ FOR restriction IN SELECT conname FROM pg_constraint WHERE conrelid='${ARENA_DB_SCHEMA}.academy_sport'::regclass AND contype='c' AND regexp_replace(pg_get_constraintdef(oid),'[[:space:]()]','','g') ILIKE 'CHECKtrainingORsessions'
+ LOOP EXECUTE format('ALTER TABLE %I.academy_sport DROP CONSTRAINT %I','${ARENA_DB_SCHEMA}',restriction.conname); END LOOP;
+END $$;
+  ]]></sql>
+ </changeSet>
+</databaseChangeLog>

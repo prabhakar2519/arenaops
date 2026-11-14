@@ -1,0 +1,12 @@
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.17.xsd">
+ <changeSet id="academy-running-sessions-03-time-windows" author="arena">
+  <sql><![CDATA[
+ALTER TABLE ${ARENA_DB_SCHEMA}.academy_running_session ADD COLUMN reserved_start TIMESTAMP, ADD COLUMN reserved_end TIMESTAMP, ADD COLUMN planned_end_at TIMESTAMP;
+UPDATE ${ARENA_DB_SCHEMA}.academy_running_session SET reserved_start=started_at, reserved_end=started_at+INTERVAL '1 hour' WHERE status='RESERVED';
+ALTER TABLE ${ARENA_DB_SCHEMA}.academy_running_session ADD CONSTRAINT academy_reservation_window CHECK(status<>'RESERVED' OR (reserved_start IS NOT NULL AND reserved_end IS NOT NULL AND reserved_end>reserved_start));
+DROP INDEX ${ARENA_DB_SCHEMA}.academy_running_session_one_active;
+CREATE UNIQUE INDEX academy_running_session_one_active ON ${ARENA_DB_SCHEMA}.academy_running_session(academy_id,facility_id) WHERE status='STARTED';
+CREATE INDEX academy_reservation_windows ON ${ARENA_DB_SCHEMA}.academy_running_session(academy_id,facility_id,reserved_start,reserved_end) WHERE status='RESERVED';
+  ]]></sql>
+ </changeSet>
+</databaseChangeLog>

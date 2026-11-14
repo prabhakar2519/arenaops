@@ -79,6 +79,7 @@ public class AppUserService {
     try {
       String keycloakId = keycloakService.createUser(
           request.getUsername(), request.getPassword(), request.getEmail(), request.getRole());
+      saved.setKeycloakSubject(keycloakId);appUserRepository.saveAndFlush(saved);
       log.info("[AppUserService] User '{}' created in Keycloak with id={}", request.getUsername(), keycloakId);
     } catch (ArenaOpsException e) {
       throw e;

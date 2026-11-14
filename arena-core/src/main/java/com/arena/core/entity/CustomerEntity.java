@@ -28,6 +28,30 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class CustomerEntity {
+ @Column(length=120) private String businessDisplayName;
+ @Column(length=40) private String businessType;
+ @Column(length=255) private String publicContactEmail;
+ @Column(length=50) private String publicPhone;
+ @Column(length=255) private String addressLine;
+ @Column(length=100) private String city;
+ @Column(length=100) private String region;
+ @Column(length=30) private String postalCode;
+ @Column(length=100) private String country;
+ @Column(length=36) private String logoRevision;
+
+ @Builder.Default private Boolean ownerManaged=false;
+ @Builder.Default private Boolean setupReviewConfirmed=false;
+ @Builder.Default private String setupStatus="INCOMPLETE";
+ private LocalDateTime setupEvaluatedAt;
+
+
+  @Column(name = "TRAINING_TIMEZONE", nullable = false)
+  @Builder.Default
+  private String trainingTimezone = "Asia/Kolkata";
+
+  @Column(name = "TRAINING_SETUP_SKIPPED", nullable = false)
+  @Builder.Default
+  private Boolean trainingSetupSkipped = false;
 
   // Optimistic version protects billing activation from stale lifecycle/admin writes.
   @jakarta.persistence.Version

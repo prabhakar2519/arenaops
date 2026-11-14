@@ -13,13 +13,23 @@ public class AdminPaymentRequest {
   @DecimalMin("0.01")
   private BigDecimal amount;
 
+  @io.swagger.v3.oas.annotations.media.Schema(types={"string","null"})
+
   private String currency;
+
+  @io.swagger.v3.oas.annotations.media.Schema(types={"string","null"})
 
   private String paymentMethod;
 
+  @io.swagger.v3.oas.annotations.media.Schema(types={"string","null"})
+
   private String paymentReference;
 
+  @io.swagger.v3.oas.annotations.media.Schema(types={"string","null"})
+
   private LocalDateTime paymentDate;
+
+  @io.swagger.v3.oas.annotations.media.Schema(types={"string","null"})
 
   private String notes;
 }

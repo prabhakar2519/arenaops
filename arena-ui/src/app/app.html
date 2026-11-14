@@ -1,10 +1,11 @@
 <div class="app-container">
-  <app-header></app-header>
-  <main class="main-content">
-    <div class="api-error-banner" *ngIf="notifications.error() as failure" role="alert">
-      <span>{{ failure.description }}</span>
-      <button type="button" (click)="notifications.dismiss()" aria-label="Dismiss error">Dismiss</button>
-    </div>
+  <app-header *ngIf="!publicLayout"></app-header>
+  <div class="workspace-layout" [class.authenticated]="auth.isAuthenticated() && !publicLayout">
+  <ao-sidebar *ngIf="auth.isAuthenticated() && !publicLayout"></ao-sidebar>
+  <main class="main-content" id="main-content">
     <router-outlet></router-outlet>
   </main>
+  </div>
 </div>
+
+<ao-ui-feedback />

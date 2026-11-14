@@ -1,0 +1,27 @@
+<section class="business-profile ao-workspace">
+ <h1>Business Profile</h1><p class="page-description">Public details for your business workspace.</p>
+ <p *ngIf="loading" role="status">Loading business profile…</p>
+ <div *ngIf="error" class="alert alert-error" role="alert">{{error}} <button *ngIf="conflict" class="btn btn-secondary" (click)="reload()">Reload latest profile</button></div>
+
+ <button *ngIf="!profile && !loading" class="btn btn-secondary" (click)="load()">Try again</button>
+ <article *ngIf="profile && !loading" class="profile-card">
+  <div class="profile-heading"><ao-business-logo [url]="logoUrl" [initial]="initial" style="--logo-size:64px"></ao-business-logo><div><h2>{{editing ? draft.displayName : profile.displayName}}</h2><p>{{typeLabel}}</p></div><button *ngIf="!editing && profile.permissions.editProfile && auth.businessBrandingValue?.permissions?.editProfile" class="btn btn-primary" (click)="edit()">Edit Profile</button></div>
+  <dl *ngIf="!editing" class="profile-details"><div><dt>Public contact email <small>(unverified)</small></dt><dd>{{profile.publicContactEmail || 'Not provided'}}</dd></div><div><dt>Contact phone</dt><dd>{{profile.publicPhone || 'Not provided'}}</dd></div><div class="wide"><dt>Primary business address</dt><dd>{{profile.addressLine || 'Not provided'}}<br *ngIf="profile.addressLine">{{[profile.city,profile.region,profile.postalCode,profile.country].filter(nonEmpty).join(', ')}}</dd></div></dl>
+  <form *ngIf="editing" (ngSubmit)="save()">
+   <div class="logo-actions"><label class="btn btn-secondary">Choose logo<input type="file" accept="image/png,image/jpeg,image/webp" (change)="chooseLogo($event)" [disabled]="busy"></label><button type="button" class="btn btn-secondary" *ngIf="logoUrl" (click)="remove()" [disabled]="busy">Remove logo</button><small>PNG, JPEG or WebP · up to 2 MB · up to 4 megapixels</small><span class="field-error">{{fieldErrors['logo']}}</span></div>
+   <fieldset [disabled]="busy" class="profile-fields">
+    <label>Business display name <input name="displayName" [(ngModel)]="draft.displayName" required maxlength="120"><span class="field-error">{{fieldErrors['displayName']}}</span></label>
+    <label>Business type <select name="businessType" [(ngModel)]="draft.businessType"><option value="">Not specified</option><option *ngFor="let type of types" [value]="type.value">{{type.label}}</option></select><span class="field-error">{{fieldErrors['businessType']}}</span></label>
+    <label>Public contact email <input type="email" name="publicContactEmail" [(ngModel)]="draft.publicContactEmail" maxlength="255"><span class="field-error">{{fieldErrors['publicContactEmail']}}</span><small>Unverified public contact only. Account recovery and trusted notifications use your existing account details.</small></label>
+    <label>Contact phone <input type="tel" name="publicPhone" [(ngModel)]="draft.publicPhone" maxlength="50" inputmode="tel" autocomplete="tel" placeholder="10-digit mobile number" aria-describedby="profile-phone-error profile-phone-hint" [attr.aria-invalid]="fieldErrors['publicPhone'] ? true : null"><span id="profile-phone-error" class="field-error">{{fieldErrors['publicPhone']}}</span><small id="profile-phone-hint">Optional. For Indian mobiles, enter 10 digits; +91 is optional.</small></label>
+    <label class="wide">Address line <input name="addressLine" [(ngModel)]="draft.addressLine" maxlength="255"><span class="field-error">{{fieldErrors['addressLine']}}</span></label>
+    <label>City <input name="city" [(ngModel)]="draft.city" maxlength="100"><span class="field-error">{{fieldErrors['city']}}</span></label>
+    <label>State / Region <input name="region" [(ngModel)]="draft.region" maxlength="100"><span class="field-error">{{fieldErrors['region']}}</span></label>
+    <label>Postal code <input name="postalCode" [(ngModel)]="draft.postalCode" maxlength="30"><span class="field-error">{{fieldErrors['postalCode']}}</span></label>
+    <label>Country <input name="country" [(ngModel)]="draft.country" maxlength="100"><span class="field-error">{{fieldErrors['country']}}</span></label>
+   </fieldset><div class="form-actions"><button class="btn btn-primary" type="submit" [disabled]="busy || !dirty || !auth.businessBrandingValue?.permissions?.editProfile">{{busy ? 'Saving…' : 'Save Changes'}}</button><button class="btn btn-secondary" type="button" (click)="cancel()" [disabled]="busy">Cancel</button></div>
+  </form>
+ </article>
+ <section class="profile-card public-website" *ngIf="features.publicClubWebsite && auth.hasRole('OWNER')"><h2>Public club website</h2><p>Publish the public details above and manage your club address and booking options.</p><a class="btn btn-primary" href="/academy/public-site">Manage public website</a></section>
+
+</section>

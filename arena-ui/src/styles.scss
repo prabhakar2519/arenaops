@@ -1,15 +1,8 @@
-:root {
-  /* Common variables */
-  --font-main: 'Outfit', sans-serif;
-  --font-logo: 'Playfair Display', serif;
-}
+/* Font families and semantic accents are centralized in _design-tokens.scss. */
 
 /* Specific Theme Definitions */
 body.dark-green {
-  /* EXACT REVERSION TO PRODUCTION (MAIN BRANCH) */
-  --snooker-green: #1a8c4e;
-  --snooker-green-light: #2da862;
-  --snooker-green-dark: #0e4d2b;
+  /* Existing neutral surfaces; semantic aliases are supplied by design tokens. */
 
   --bg-primary: #0e4d2b;
   --bg-secondary: #1a8c4e;
@@ -26,12 +19,6 @@ body.dark-green {
 
   --text-main: #ffffff;
   --text-muted: #e0e0e0;
-  --text-inverse: #1b1b1b;
-
-  --accent-primary: #ffd700;
-  --accent-primary-hover: #ffea70;
-  --accent-success: #4ade80;
-  --accent-danger: #ff4d4d;
 
   --border-main: #2da862;
   --border-light: rgba(255, 255, 255, 0.1);
@@ -59,11 +46,7 @@ body.dark-green.badminton-page {
   --bg-occupied: linear-gradient(145deg, rgba(239, 68, 68, 0.2), rgba(0, 0, 0, 0.8));
   --text-main: #ffffff;
   --text-muted: #e0e0e0;
-  --text-inverse: #1b1b1b;
-  --accent-primary: #ffd700;
-  --accent-primary-hover: #ffea70;
-  --accent-success: #4ade80;
-  --accent-danger: #ff4d4d;
+
   --border-main: #2da862;
   --border-light: rgba(255, 255, 255, 0.1);
   --border-card: #2da862;
@@ -97,13 +80,8 @@ body.light {
 
   --text-main: #0f172a;
   --text-muted: #64748b;
-  --text-inverse: #ffffff;
 
-  --accent-primary: #1a8c4e;
   /* Clean Snooker Green for buttons */
-  --accent-primary-hover: #2da862;
-  --accent-success: #16a34a;
-  --accent-danger: #dc2626;
 
   --border-main: #e2e8f0;
   --border-light: #cbd5e1;
@@ -153,3 +131,5 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: var(--accent-primary);
 }
+
+/* Apply workspace token overrides after legacy theme declarations. */

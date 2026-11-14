@@ -9,6 +9,9 @@ server:
         secure: ${SESSION_COOKIE_SECURE:false}
 
 spring:
+  servlet:
+    multipart:
+      enabled: false # Forward raw multipart bodies to Core without consuming them here.
   application:
     name: arena-login
 
@@ -47,3 +50,21 @@ logging:
   level:
     org.springframework.security: INFO
     org.springframework.web: INFO
+
+# API documentation is opt-in; production/SIT remain disabled by default.
+springdoc:
+  api-docs:
+    enabled: false
+    version: OPENAPI_3_1
+  swagger-ui:
+    enabled: false
+    persist-authorization: false
+    supported-submit-methods: [get, post, put, patch, delete]
+    with-credentials: true
+  override-with-generic-response: false
+
+# Public club host assertions are signed by the BFF; provision a shared secret before publishing.
+arena.public.host-key: ${PUBLIC_CLUB_HOST_KEY:}
+arena.public.domain: ${PUBLIC_CLUB_DOMAIN:arenaops.in}
+arena.public.scheme: ${PUBLIC_CLUB_SCHEME:https}
+arena.public.port: ${PUBLIC_CLUB_PORT:}

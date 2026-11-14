@@ -1,0 +1,25 @@
+{
+ admin off
+ auto_https disable_redirects
+ servers {
+  strict_sni_host on
+ }
+}
+# Local only: internal CA, no public ACME/DNS mutations. Use curl --resolve or hosts entries.
+https://speed.arenaops.test:8443, https://shradha.arenaops.test:8443 {
+ tls internal
+ @public_api path /api/public/club /api/public/club/logo /api/public/club/reservations /api/public/facility-check-ins/inspect /api/public/facility-check-ins/submit
+ handle @public_api {
+  uri strip_prefix /api
+  reverse_proxy {$PUBLIC_LOCAL_BFF:host.docker.internal:7700} {
+   header_up Host {host}
+   header_up -X-Arena-Public-Host
+   header_up -X-Arena-Public-Time
+   header_up -X-Arena-Public-Signature
+   header_up -Forwarded
+  }
+ }
+ @private path /api /api/* /auth /auth/* /academy /academy/* /admin /admin/* /login /login/* /billing /business-profile /register
+ respond @private 404
+ reverse_proxy {$PUBLIC_LOCAL_UI:host.docker.internal:4200}
+}

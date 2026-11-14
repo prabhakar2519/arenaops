@@ -12,6 +12,8 @@ public interface AppUserRepository extends JpaRepository<AppUserEntity, Long> {
 
   Optional<AppUserEntity> findByUsername(String username);
 
+  Optional<AppUserEntity> findByUsernameIgnoreCase(String username);
+
   boolean existsByUsername(String username);
 
   @Query("select (count(u) > 0) from AppUserEntity u where lower(trim(u.email)) = :email")

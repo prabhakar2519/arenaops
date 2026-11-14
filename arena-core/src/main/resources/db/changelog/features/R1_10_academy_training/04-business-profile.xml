@@ -1,0 +1,19 @@
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.17.xsd">
+ <changeSet id="academy-manager-access-v1" author="arena">
+  <sql>ALTER TABLE ${ARENA_DB_SCHEMA}.academy_staff ADD COLUMN manager_access varchar(30) NOT NULL DEFAULT 'STANDARD';
+  ALTER TABLE ${ARENA_DB_SCHEMA}.academy_staff ADD CONSTRAINT academy_manager_access_check CHECK (manager_access IN ('STANDARD','FULL_OPERATIONS'));</sql>
+ </changeSet>
+ <changeSet id="business-public-profile-v1" author="arena"><sql>
+ALTER TABLE ${ARENA_DB_SCHEMA}.customer ADD COLUMN business_display_name varchar(120);
+ALTER TABLE ${ARENA_DB_SCHEMA}.customer ADD COLUMN business_type varchar(40);
+ALTER TABLE ${ARENA_DB_SCHEMA}.customer ADD COLUMN public_contact_email varchar(255);
+ALTER TABLE ${ARENA_DB_SCHEMA}.customer ADD COLUMN public_phone varchar(50);
+ALTER TABLE ${ARENA_DB_SCHEMA}.customer ADD COLUMN address_line varchar(255);
+ALTER TABLE ${ARENA_DB_SCHEMA}.customer ADD COLUMN city varchar(100);
+ALTER TABLE ${ARENA_DB_SCHEMA}.customer ADD COLUMN region varchar(100);
+ALTER TABLE ${ARENA_DB_SCHEMA}.customer ADD COLUMN postal_code varchar(30);
+ALTER TABLE ${ARENA_DB_SCHEMA}.customer ADD COLUMN country varchar(100);
+ALTER TABLE ${ARENA_DB_SCHEMA}.customer ADD COLUMN logo_revision varchar(36);
+CREATE TABLE ${ARENA_DB_SCHEMA}.business_logo (customer_id bigint PRIMARY KEY REFERENCES ${ARENA_DB_SCHEMA}.customer(id), image bytea NOT NULL, CONSTRAINT business_logo_size CHECK (octet_length(image) &lt;= 2097152));
+ </sql></changeSet>
+</databaseChangeLog>

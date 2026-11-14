@@ -9,7 +9,7 @@ import org.springframework.stereotype.Service;
 public class AdminAuthorizationService {
 
   public boolean isAdmin(Jwt jwt) {
-    return hasRealmRole(jwt, "ADMIN");
+    return hasRealmRole(jwt, "ADMIN") || hasRealmRole(jwt,"PLATFORM_ADMIN");
   }
 
   public String resolveUsername(Jwt jwt) {

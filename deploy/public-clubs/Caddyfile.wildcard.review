@@ -1,0 +1,35 @@
+# REVIEW ONLY. Append to infrastructure-owned Caddyfile after DNS/certificate staging approval.
+# Preserve the existing explicit apex/SIT host blocks and networks.
+# Add strict_sni_host on to the EXISTING global servers options (do not add a second global block).
+# Import provider snippet at top-level: import /etc/caddy/public-dns-provider.caddy
+*.arenaops.in {
+ tls {
+  import public_dns_provider
+ }
+ encode zstd gzip
+ header {
+  Strict-Transport-Security "max-age=31536000"
+  X-Content-Type-Options nosniff
+  Referrer-Policy no-referrer
+  -Server
+ }
+ # Infrastructure names remain reserved even if wildcard DNS routes them here.
+ @reserved host www.arenaops.in api.arenaops.in admin.arenaops.in dev.arenaops.in auth.arenaops.in staging.arenaops.in mail.arenaops.in status.arenaops.in
+ respond @reserved 404
+ route {
+  @public_api path /api/public/club /api/public/club/logo /api/public/club/reservations /api/public/facility-check-ins/inspect /api/public/facility-check-ins/submit
+  handle @public_api {
+   uri strip_prefix /api
+   reverse_proxy prod-arena-login:7700 {
+    header_up Host {host}
+    header_up -X-Arena-Public-Host
+    header_up -X-Arena-Public-Time
+    header_up -X-Arena-Public-Signature
+    header_up -Forwarded
+   }
+  }
+  @private path /api /api/* /auth /auth/* /admin /admin/* /academy /academy/* /login /login/* /billing /business-profile /register
+  respond @private 404
+  reverse_proxy prod-arena-ui:80
+ }
+}

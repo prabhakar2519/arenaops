@@ -27,11 +27,13 @@ import java.util.Collections;
 import java.util.Enumeration;
 import java.time.Instant;
 
+@io.swagger.v3.oas.annotations.tags.Tag(name="Authentication / BFF")
 @RestController
 @RequestMapping({ "/api", "" })
 @Slf4j
 public class TokenController {
 
+    @org.springframework.beans.factory.annotation.Autowired private com.arena.login.service.PublicClubProxyHost publicClubHost;
     private final TokenService tokenService;
     private final RestTemplate restTemplate;
     private final ObjectMapper errorMapper = new ObjectMapper();
@@ -45,7 +47,10 @@ public class TokenController {
         this.restTemplate = restTemplate;
     }
 
-    @PostMapping({ "/token", "/token/" })
+    @io.swagger.v3.oas.annotations.Operation(summary="Exchange a browser authorization code for a BFF session", description="BFF routes have /api-prefixed and root aliases, including supported trailing slashes. Bearer tokens remain server-side in the JSESSIONID session. Downstream Core errors are sanitized; facility conflicts and field errors are retained. Public authorization-code exchange using the existing PKCE verifier. The authorization code is single-use; never replay it after an uncertain response. Returns UserInfo, never TokenResponse. Establishes a server-side session only after Core access validation. redirectUri must match the original browser authorization flow.")
+ @com.arena.login.documentation.DocumentedErrors({com.arena.login.exception.ErrorCode.ACCESS_DENIED,com.arena.login.exception.ErrorCode.AUTHENTICATION_FAILED,com.arena.login.exception.ErrorCode.CUSTOMER_ACCESS_BLOCKED,com.arena.login.exception.ErrorCode.IDENTITY_PROVIDER_UNAVAILABLE,com.arena.login.exception.ErrorCode.SERVICE_UNAVAILABLE})
+ @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode="200",description="BFF user identity; no tokens returned",content=@io.swagger.v3.oas.annotations.media.Content(mediaType="application/json",schema=@io.swagger.v3.oas.annotations.media.Schema(implementation=com.arena.login.model.UserInfo.class)))
+ @PostMapping({ "/token", "/token/" })
     public ResponseEntity<?> validateToken(@Valid @RequestBody TokenRequest request,
             HttpSession session, HttpServletRequest servletRequest) {
         try {
@@ -77,7 +82,10 @@ public class TokenController {
         }
     }
 
-    @GetMapping({ "/user", "/user/" })
+    @io.swagger.v3.oas.annotations.Operation(summary="Validate the BFF session and get the user", description="BFF routes have /api-prefixed and root aliases, including supported trailing slashes. Bearer tokens remain server-side in the JSESSIONID session. Downstream Core errors are sanitized; facility conflicts and field errors are retained. Requires an established BFF session. Validates Core access, refreshes once on downstream 401, and returns UserInfo. Disabled/expired/revoked access may invalidate the session.")
+ @com.arena.login.documentation.DocumentedErrors({com.arena.login.exception.ErrorCode.ACCESS_DENIED,com.arena.login.exception.ErrorCode.AUTHENTICATION_FAILED,com.arena.login.exception.ErrorCode.CUSTOMER_ACCESS_BLOCKED,com.arena.login.exception.ErrorCode.SERVICE_UNAVAILABLE})
+ @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode="200",description="BFF user identity; no tokens returned",content=@io.swagger.v3.oas.annotations.media.Content(mediaType="application/json",schema=@io.swagger.v3.oas.annotations.media.Schema(implementation=com.arena.login.model.UserInfo.class)))
+ @GetMapping({ "/user", "/user/" })
     public ResponseEntity<?> getUserInfo(HttpSession session, HttpServletRequest servletRequest) {
         try {
             String token = (String) session.getAttribute("ACCESS_TOKEN");
@@ -108,7 +116,9 @@ public class TokenController {
         }
     }
 
-    @PostMapping({ "/logout", "/logout/" })
+    @io.swagger.v3.oas.annotations.Operation(summary="Invalidate the local BFF session", description="BFF routes have /api-prefixed and root aliases, including supported trailing slashes. Bearer tokens remain server-side in the JSESSIONID session. Downstream Core errors are sanitized; facility conflicts and field errors are retained. Invalidates the local session; presence logout is best-effort. This does not itself perform Keycloak browser logout.")
+ @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode="204", description="Successful operation")
+ @PostMapping({ "/logout", "/logout/" })
     public ResponseEntity<Void> logout(HttpSession session) {
         String token = (String) session.getAttribute("ACCESS_TOKEN");
         if (token != null) {
@@ -122,11 +132,15 @@ public class TokenController {
         return ResponseEntity.noContent().build();
     }
 
-    @GetMapping({ "/health", "/health/" })
+    @io.swagger.v3.oas.annotations.Operation(summary="Check Login liveness", description="BFF routes have /api-prefixed and root aliases, including supported trailing slashes. Bearer tokens remain server-side in the JSESSIONID session. Downstream Core errors are sanitized; facility conflicts and field errors are retained.")
+ @GetMapping({ "/health", "/health/" })
     public ResponseEntity<String> health() {
         return ResponseEntity.ok("OK");
     }
 
+    @io.swagger.v3.oas.annotations.Operation(summary="Check Login and Core readiness", description="BFF routes have /api-prefixed and root aliases, including supported trailing slashes. Bearer tokens remain server-side in the JSESSIONID session. Downstream Core errors are sanitized; facility conflicts and field errors are retained. Public dependency readiness; returns status UP only when Core readiness succeeds, otherwise structured 503.")
+ @com.arena.login.documentation.DocumentedErrors({com.arena.login.exception.ErrorCode.SERVICE_UNAVAILABLE})
+ @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode="200",description="Core readiness succeeded",content=@io.swagger.v3.oas.annotations.media.Content(mediaType="application/json",schema=@io.swagger.v3.oas.annotations.media.Schema(implementation=com.arena.login.documentation.ResponseDocumentation.Readiness.class)))
     @GetMapping("/readiness")
     public ResponseEntity<?> readiness(HttpServletRequest request) {
         try {
@@ -158,7 +172,12 @@ public class TokenController {
         }
     }
 
+    @io.swagger.v3.oas.annotations.Hidden
     @RequestMapping("/**")
+    public ResponseEntity<byte[]> proxyRequest(HttpServletRequest request) throws URISyntaxException, IOException {
+        return proxyRequest(request,request.getSession(false));
+    }
+
     public ResponseEntity<byte[]> proxyRequest(HttpServletRequest request, HttpSession session)
             throws URISyntaxException, IOException {
         String path = request.getRequestURI();
@@ -183,15 +202,16 @@ public class TokenController {
         String query = request.getQueryString();
         String targetUri = coreUrl + path + (query != null ? "?" + query : "");
 
-        String accessToken = (String) session.getAttribute("ACCESS_TOKEN");
+        String accessToken = session==null?null:(String) session.getAttribute("ACCESS_TOKEN");
         log.info("[BFF Proxy] {} {} - SessionID: {}, TokenPresent: {}",
-                request.getMethod(), path, session.getId(), accessToken != null);
+                request.getMethod(), path, session==null?"anonymous":session.getId(), accessToken != null);
 
         // Allow initial registration and public booking to be proxied without a token
         boolean isInitialRegistration = request.getMethod().equalsIgnoreCase("POST")
                 && java.util.Set.of("/api/users", "/api/registration/validate-invitation",
                         "/api/registration/activate").contains(path);
         boolean isPublicApi = path.startsWith("/api/public/");
+        if(isPublicApi)accessToken=null; // Public check-in never borrows or refreshes a staff session.
 
         if (accessToken == null && !isInitialRegistration && !isPublicApi) {
             return errorBytes(ErrorCode.AUTHENTICATION_REQUIRED, request);
@@ -205,7 +225,7 @@ public class TokenController {
         java.util.Set<String> hopByHopHeaders = java.util.Set.of(
                 "host", "connection", "keep-alive", "proxy-authenticate",
                 "proxy-authorization", "te", "trailers", "transfer-encoding", "upgrade",
-                "cookie", "authorization", "x-correlation-id",
+                "x-arena-preview-slug", "cookie", "authorization", "x-correlation-id", "x-arena-public-host", "x-arena-public-time", "x-arena-public-signature", "x-forwarded-host", "forwarded",
                 "content-length" // we will set this ourselves from the byte array
         );
 
@@ -217,12 +237,19 @@ public class TokenController {
                 headers.addAll(headerName, Collections.list(request.getHeaders(headerName)));
             }
         }
+        if(isPublicApi){if(publicClubHost==null)return errorBytes(ErrorCode.RESOURCE_NOT_FOUND,request);publicClubHost.sign(request,headers);}
         headers.set(CorrelationIdFilter.HEADER, CorrelationIdFilter.correlationId(request));
         if (accessToken != null) {
             headers.setBearerAuth(accessToken);
         }
 
-        byte[] body = StreamUtils.copyToByteArray(request.getInputStream());
+        boolean profileUpload="/api/business-profile".equals(path)&&"PUT".equalsIgnoreCase(request.getMethod());
+        int profileLimit=3*1024*1024;
+        if(profileUpload&&request.getContentLengthLong()>profileLimit)return errorBytes(ErrorCode.LOGO_TOO_LARGE,request);
+        boolean checkinPublic=java.util.Set.of("/api/public/facility-check-ins/inspect","/api/public/facility-check-ins/submit","/api/public/club/reservations").contains(path);
+        byte[] body = profileUpload?request.getInputStream().readNBytes(profileLimit+1):checkinPublic?request.getInputStream().readNBytes(2049):StreamUtils.copyToByteArray(request.getInputStream());
+        if(checkinPublic&&body.length>2048)return errorBytes(ErrorCode.INVALID_REQUEST,request);
+        if(profileUpload&&body.length>profileLimit)return errorBytes(ErrorCode.LOGO_TOO_LARGE,request);
         headers.setContentLength(body.length);
         HttpEntity<byte[]> entity = new HttpEntity<>(body, headers);
 
@@ -285,12 +312,17 @@ public class TokenController {
         int status = exception.getStatusCode().value();
         ErrorCode code = ErrorCode.forStatus(status);
         java.util.Map<String, String> fields = null;
+        String reason=null;java.util.List<java.util.Map<String,Object>> conflicts=null;
         try {
             var body = errorMapper.readTree(exception.getResponseBodyAsByteArray());
             var recognized = ErrorCode.valueOf(body.path("errorCode").asText());
             if (recognized.getStatus() == status) {
                 code = recognized;
-                if (code == ErrorCode.VALIDATION_FAILED && body.path("fieldErrors").isObject()) {
+                if(code.name().startsWith("FACILITY_")){
+                    String candidate=body.path("reasonCode").asText();if(candidate.matches("[A-Z_]{1,80}"))reason=candidate;
+                    if(body.path("conflicts").isArray()) {conflicts=new java.util.ArrayList<>();for(var conflict:body.path("conflicts")){if(conflicts.size()>=200)break;var safe=new java.util.LinkedHashMap<String,Object>();for(String field:java.util.List.of("facilityId","submittedVersion","currentVersion"))if(conflict.path(field).isIntegralNumber())safe.put(field,conflict.path(field).longValue());if(conflict.path("code").asText().matches("[A-Za-z0-9_-]{1,64}"))safe.put("code",conflict.path("code").asText());conflicts.add(safe);}}
+                }
+                if ((code == ErrorCode.VALIDATION_FAILED || code.name().startsWith("FACILITY_")) && body.path("fieldErrors").isObject()) {
                     fields = errorMapper.convertValue(body.path("fieldErrors"),
                             new com.fasterxml.jackson.core.type.TypeReference<java.util.Map<String, String>>() {});
                 }
@@ -298,8 +330,10 @@ public class TokenController {
         } catch (Exception ignored) {
             // Legacy/unstructured upstream errors get safe status-based descriptions.
         }
+        if(code==ErrorCode.DUPLICATE_USERNAME||code==ErrorCode.DUPLICATE_EMAIL)fields=java.util.Map.of(code==ErrorCode.DUPLICATE_USERNAME?"username":"email",code.getDescription());
+        var safeBody=ApiErrors.body(code,status,request,fields);
         return ResponseEntity.status(status).header(CorrelationIdFilter.HEADER, CorrelationIdFilter.correlationId(request))
-                .body(ApiErrors.body(code, status, request, fields));
+                .body(new ErrorResponse(safeBody.timestamp(),status,code,reason==null?safeBody.reasonCode():reason,safeBody.description(),safeBody.path(),safeBody.correlationId(),fields,conflicts));
     }
 
     private ResponseEntity<byte[]> downstreamErrorBytes(HttpStatusCodeException exception, HttpServletRequest request) throws IOException {

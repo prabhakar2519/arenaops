@@ -99,6 +99,13 @@ jobs:
       - name: Test login gateway
         run: mvn --batch-mode -f arena-login/pom.xml clean verify
 
+      - name: Install API contract validation tools
+        run: python3 -m pip install -r docs/api/requirements.txt
+
+      - name: Validate OpenAPI structure, references and reviewed source coverage
+        run: python3 scripts/validate-openapi.py
+
+
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
@@ -223,6 +230,12 @@ jobs:
           ARENA_DB_USERNAME: ${{ secrets.ARENA_DB_USERNAME }}
           ARENA_DB_PASSWORD: ${{ secrets.ARENA_DB_PASSWORD }}
           KC_BFF_CLIENT_SECRET: ${{ secrets.KC_BFF_CLIENT_SECRET }}
+          PUBLIC_CLUB_PREVIEW_ENABLED: ${{ vars.PUBLIC_CLUB_PREVIEW_ENABLED }}
+          PUBLIC_CLUB_HOSTING_READY: ${{ vars.PUBLIC_CLUB_HOSTING_READY }}
+          PUBLIC_CLUB_HOST_KEY: ${{ secrets.PUBLIC_CLUB_HOST_KEY }}
+          PUBLIC_CLUB_DOMAIN: ${{ vars.PUBLIC_CLUB_DOMAIN }}
+          PUBLIC_CLUB_SCHEME: ${{ vars.PUBLIC_CLUB_SCHEME }}
+          PUBLIC_CLUB_PORT: ${{ vars.PUBLIC_CLUB_PORT }}
           ARENAOPS_MAIL_ENABLED: ${{ vars.ARENAOPS_MAIL_ENABLED }}
           BREVO_SMTP_HOST: ${{ vars.BREVO_SMTP_HOST }}
           BREVO_SMTP_PORT: ${{ vars.BREVO_SMTP_PORT }}

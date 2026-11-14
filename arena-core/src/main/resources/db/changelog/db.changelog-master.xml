@@ -14,4 +14,21 @@
     <include file="db/changelog/releases/release-1.9.xml"/>
     <include file="db/changelog/features/R1_9_saas_lifecycle/02-customer-email-unique.xml"/>
     <include file="db/changelog/features/R1_9_saas_lifecycle/03-owner-billing.xml"/>
+    <include file="db/changelog/features/R1_10_academy_training/01-academy-training.xml"/>
+    <include file="db/changelog/features/R1_10_academy_training/02-staff-optional-identity.xml"/>
+    <include file="db/changelog/features/R1_10_academy_training/03-academy-mvp.xml"/>
+    <include file="db/changelog/features/R1_10_academy_training/04-business-profile.xml"/>
+    <include file="db/changelog/features/R1_10_academy_training/05-activity-capabilities.xml"/>
+    <include file="db/changelog/features/R1_10_academy_training/06-facility-resources.xml"/>
+    <include file="db/changelog/features/R1_10_academy_training/07-staff-registration.xml"/>
+    <include file="db/changelog/features/R1_11_student_management/01-students.xml"/>
+    <include file="db/changelog/features/R1_12_training_operations/01-enrollments-sessions.xml"/>
+    <include file="db/changelog/features/R1_13_attendance/01-attendance.xml"/>
+    <include file="db/changelog/features/R1_14_academy_billing/01-fees-payments.xml"/>
+    <include file="db/changelog/features/R1_15_running_sessions/01-running-sessions.xml"/>
+    <include file="db/changelog/features/R1_15_running_sessions/02-reservations.xml"/>
+    <include file="db/changelog/features/R1_15_running_sessions/03-timed-reservations.xml"/>
+    <include file="db/changelog/features/R1_16_session_checkout/01-checkout.xml"/>
+    <include file="db/changelog/features/R1_17_facility_checkin/01-checkin.xml"/>
+    <include file="db/changelog/features/R1_18_public_clubs/01-public-clubs.xml"/>
 </databaseChangeLog>

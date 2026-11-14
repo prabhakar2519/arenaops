@@ -1,0 +1,25 @@
+package com.arena.core.profile;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.http.*;
+import org.springframework.web.multipart.MultipartFile;
+@io.swagger.v3.oas.annotations.tags.Tag(name="Business profile")
+@RestController @RequestMapping("/api/business-profile") @RequiredArgsConstructor
+public class BusinessProfileController {
+ private final BusinessProfileService service;
+ @io.swagger.v3.oas.annotations.Operation(summary="Get Business Profile", description="Current tenant only. Full profile read/write requires Owner or FULL_OPERATIONS Manager. Branding/logo are separately available to authenticated active tenant members. Public-field edits cannot change billing/legal-owner identity.")
+ @com.arena.core.documentation.DocumentedErrors({com.arena.core.exception.ErrorCode.CUSTOMER_ACCESS_BLOCKED,com.arena.core.exception.ErrorCode.PAYMENT_REQUIRED,com.arena.core.exception.ErrorCode.SERVICE_UNAVAILABLE,com.arena.core.exception.ErrorCode.SUBSCRIPTION_ACCESS_BLOCKED,com.arena.core.exception.ErrorCode.SUBSCRIPTION_EXPIRED,com.arena.core.exception.ErrorCode.USER_DISABLED})
+ @GetMapping public BusinessProfileService.Profile get(@AuthenticationPrincipal Jwt jwt){return service.get(jwt);}
+ @io.swagger.v3.oas.annotations.Operation(summary="Get current academy branding and permissions", description="Current tenant only. Full profile read/write requires Owner or FULL_OPERATIONS Manager. Branding/logo are separately available to authenticated active tenant members. Public-field edits cannot change billing/legal-owner identity.")
+ @com.arena.core.documentation.DocumentedErrors({com.arena.core.exception.ErrorCode.CUSTOMER_ACCESS_BLOCKED,com.arena.core.exception.ErrorCode.PAYMENT_REQUIRED,com.arena.core.exception.ErrorCode.SERVICE_UNAVAILABLE,com.arena.core.exception.ErrorCode.SUBSCRIPTION_ACCESS_BLOCKED,com.arena.core.exception.ErrorCode.SUBSCRIPTION_EXPIRED,com.arena.core.exception.ErrorCode.USER_DISABLED})
+ @GetMapping("/branding") public BusinessProfileService.Branding branding(@AuthenticationPrincipal Jwt jwt){return service.branding(jwt);}
+ @io.swagger.v3.oas.annotations.Operation(summary="Download the current academy logo", description="Current tenant only. Full profile read/write requires Owner or FULL_OPERATIONS Manager. Branding/logo are separately available to authenticated active tenant members. Public-field edits cannot change billing/legal-owner identity. Return the current tenant logo as image/png with nosniff and private,no-store headers; 404 if absent. No profile-edit permission is needed to display branding.")
+ @com.arena.core.documentation.DocumentedErrors({com.arena.core.exception.ErrorCode.CUSTOMER_ACCESS_BLOCKED,com.arena.core.exception.ErrorCode.PAYMENT_REQUIRED,com.arena.core.exception.ErrorCode.RESOURCE_NOT_FOUND,com.arena.core.exception.ErrorCode.SERVICE_UNAVAILABLE,com.arena.core.exception.ErrorCode.SUBSCRIPTION_ACCESS_BLOCKED,com.arena.core.exception.ErrorCode.SUBSCRIPTION_EXPIRED,com.arena.core.exception.ErrorCode.USER_DISABLED})
+ @GetMapping(value="/logo",produces="image/png") public ResponseEntity<byte[]> logo(@AuthenticationPrincipal Jwt jwt){return ResponseEntity.ok().contentType(MediaType.IMAGE_PNG).header("X-Content-Type-Options","nosniff").header("Cache-Control","private, no-store").body(service.image(jwt));}
+ @io.swagger.v3.oas.annotations.Operation(summary="Save public Business Profile and logo", description="Current tenant only. Full profile read/write requires Owner or FULL_OPERATIONS Manager. Branding/logo are separately available to authenticated active tenant members. Public-field edits cannot change billing/legal-owner identity. Multipart profile part must have Content-Type application/json; logo is optional PNG/JPEG/WebP bytes. logoAction KEEP preserves the logo, REPLACE requires a non-empty file, REMOVE deletes it. Images are normalized to PNG, max input/normalized size 2 MB, maximum 4096 pixels per side and 4 megapixels. Record version must match; 409 preserves saved state. Unknown/protected profile fields are rejected. The BFF additionally limits the entire profile-upload request to 3 MB.")
+ @com.arena.core.documentation.DocumentedErrors({com.arena.core.exception.ErrorCode.CONFLICT,com.arena.core.exception.ErrorCode.CUSTOMER_ACCESS_BLOCKED,com.arena.core.exception.ErrorCode.INVALID_LOGO,com.arena.core.exception.ErrorCode.LOGO_TOO_LARGE,com.arena.core.exception.ErrorCode.PAYMENT_REQUIRED,com.arena.core.exception.ErrorCode.SERVICE_UNAVAILABLE,com.arena.core.exception.ErrorCode.SUBSCRIPTION_ACCESS_BLOCKED,com.arena.core.exception.ErrorCode.SUBSCRIPTION_EXPIRED,com.arena.core.exception.ErrorCode.USER_DISABLED})
+ @PutMapping(consumes=MediaType.MULTIPART_FORM_DATA_VALUE) public BusinessProfileService.Profile save(@AuthenticationPrincipal Jwt jwt,@Valid @RequestPart("profile") ProfileUpdate profile,@RequestPart(value="logo",required=false) MultipartFile logo){return service.save(jwt,profile,logo);}
+}

@@ -86,19 +86,19 @@ export class AuthCallbackComponent implements OnInit {
         // Exchange the code for a token via the backend
         this.authService.exchangeCodeForToken(code, params['state']).subscribe({
           next: (user) => {
-            console.log('Authentication successful', user);
+            // Keep account and authentication data out of browser logs.
             this.handleNavigation(user);
           },
           error: (error) => {
-            console.error('Token exchange failed', error);
+            // Render a sanitized error without logging authentication responses.
             if (this.handleUnavailable(error)) return;
             if (error.status === 403) {
               this.redirectAfterAccessDenied(error);
               return;
             }
-            this.errorMessage = 'Authentication failed. Please try again.';
+            this.errorMessage = error instanceof Error && !('status' in error)
+              ? error.message : apiError(error).description;
             scrollToTopOnError();
-            this.redirectToLogin();
           }
         });
       } else {
@@ -118,7 +118,6 @@ export class AuthCallbackComponent implements OnInit {
             }
             this.errorMessage = 'Session expired. Please login again.';
             scrollToTopOnError();
-            this.redirectToLogin();
           }
         });
       }
@@ -142,8 +141,19 @@ export class AuthCallbackComponent implements OnInit {
     this.authService.setParlours([]);
     this.authService.setParlourName('ARENAOPS');
     this.authService.setActiveSport('SNOOKER');
-    const target = user?.role === 'ADMIN' ? '/admin' : user?.role === 'OWNER' ? '/billing' : '/';
-    this.router.navigate([target], { replaceUrl: true });
+    if (user?.role === 'OWNER') {
+      this.authService.fetchAcademyContext().subscribe({
+        next: context => this.router.navigate(['/academy/dashboard'], { replaceUrl: true }),
+        error: error => {
+          // Setup access may be blocked by an expired subscription; billing must remain reachable.
+          if (error?.status === 403) void this.router.navigate(['/billing'], { replaceUrl: true });
+          else this.handleWorkspaceLoadError(error);
+        }
+      });
+      return;
+    }
+    if(['ADMIN','PLATFORM_ADMIN'].includes(user?.role)){void this.router.navigate(['/admin'], {replaceUrl:true});return;}
+    this.authService.fetchAcademyContext().subscribe({next:context=>this.router.navigate(['/academy/dashboard'],{replaceUrl:true}),error:error=>this.handleWorkspaceLoadError(error)});
   }
 
   private handleWorkspaceLoadError(error: any): void {
@@ -158,12 +168,6 @@ export class AuthCallbackComponent implements OnInit {
 
     this.errorMessage = 'Login succeeded, but the local workspace could not be loaded. Please check the core service and try again.';
     scrollToTopOnError();
-  }
-
-  private redirectToLogin() {
-    setTimeout(() => {
-      this.router.navigate(['/login'], { replaceUrl: true });
-    }, 3000);
   }
 
   private accessDeniedMessage(error: any): string {

@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /** Keeps servlet/container failures on the same safe contract as controller advice. */
+@io.swagger.v3.oas.annotations.Hidden
 @RestController
 public class ApiErrorController implements ErrorController {
     @RequestMapping("/error")

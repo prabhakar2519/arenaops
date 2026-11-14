@@ -28,6 +28,27 @@ class DeploymentTests(unittest.TestCase):
         path.chmod(0o600)
         return path
 
+    def test_public_host_signing_disabled_by_default_and_shared_only_with_bff_core(self):
+        core, login, compose = config.configuration(self.values())
+        self.assertEqual('', core['PUBLIC_CLUB_HOST_KEY'])
+        self.assertEqual('', login['PUBLIC_CLUB_HOST_KEY'])
+        key = 'k' * 48
+        core, login, compose = config.configuration(self.values(PUBLIC_CLUB_HOST_KEY=key))
+        self.assertEqual(key, core['PUBLIC_CLUB_HOST_KEY'])
+        self.assertEqual(key, login['PUBLIC_CLUB_HOST_KEY'])
+        self.assertNotIn('PUBLIC_CLUB_HOST_KEY', compose)
+        with self.assertRaises(config.ConfigError):
+            config.configuration(self.values(PUBLIC_CLUB_HOST_KEY='short'))
+
+    def test_public_path_preview_is_opt_in_and_cannot_ship_to_production(self):
+        core, login, _ = config.configuration(self.values('sit', PUBLIC_CLUB_PREVIEW_ENABLED='true'))
+        self.assertEqual('true', core['PUBLIC_CLUB_PREVIEW_ENABLED'])
+        self.assertEqual('true', login['PUBLIC_CLUB_PREVIEW_ENABLED'])
+        with self.assertRaises(config.ConfigError):
+            config.configuration(self.values('prod', PUBLIC_CLUB_PREVIEW_ENABLED='true'))
+        with self.assertRaises(config.ConfigError):
+            config.configuration(self.values('sit', PUBLIC_CLUB_HOSTING_READY='yes'))
+
     def test_compose_environment_network_and_secret_isolation(self):
         for environment, (realm, origin) in config.ENVIRONMENTS.items():
             with self.subTest(environment=environment), tempfile.TemporaryDirectory() as directory:

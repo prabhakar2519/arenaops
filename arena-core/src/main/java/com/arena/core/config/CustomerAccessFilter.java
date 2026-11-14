@@ -30,6 +30,7 @@ public class CustomerAccessFilter extends OncePerRequestFilter {
   private final CustomerAccessService customerAccessService;
   private final AdminAuthorizationService adminAuthorizationService;
   private final ApiErrors apiErrors;
+  private final com.arena.core.training.StaffLoginService staffLogin;
 
   @Override
   protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
@@ -56,6 +57,7 @@ public class CustomerAccessFilter extends OncePerRequestFilter {
           apiErrors.write(request, response, ErrorCode.CUSTOMER_ACCESS_BLOCKED);
           return;
         }
+        staffLogin.reconcile(jwt,user);
         customerAccessService.assertCustomerCanUseApp(user);
       } catch (ArenaOpsException ex) {
         apiErrors.write(request, response, ex.getErrorCode());
@@ -75,7 +77,7 @@ public class CustomerAccessFilter extends OncePerRequestFilter {
   }
 
   private boolean shouldSkip(String path) {
-    return !path.startsWith("/api/")
+    return path.equals("/api/public/club") || path.equals("/api/public/club/logo") || path.equals("/api/public/club/reservations") || path.equals("/api/public/facility-check-ins/inspect") || path.equals("/api/public/facility-check-ins/submit") || !path.startsWith("/api/")
         || path.equals("/api/health")
         || path.equals("/api/access/check")
         || path.equals("/api/billing")

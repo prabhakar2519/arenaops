@@ -22,7 +22,7 @@ Set the required `ARENA_DB_SCHEMA` in local configuration; no schema creation co
 | SIT | `arena_sit` | `arena_sit` |
 | PROD | `arena` | `arena` |
 
-Existing local `.env` files must set `ARENA_DB_NAME=arena_dev` and `ARENA_DB_SCHEMA=arena_dev` and match the DEV infrastructure database. This configuration change does not move any existing data.
+Local application DEV settings live in each service's ignored `src/main/resources/application-dev.yaml`. Copy `application-dev.yaml.example` to that filename on a new checkout and fill its local credentials. Set `ARENA_DB_NAME=arena_dev` and `ARENA_DB_SCHEMA=arena_dev` to match the DEV infrastructure database. Infrastructure continues to use its separate `.env`. Application DEV profiles do not import `.env`.
 
 Start each service in its own terminal:
 
@@ -32,7 +32,9 @@ cd arena-login && mvn spring-boot:run -Dspring-boot.run.profiles=dev
 cd arena-ui && npm ci && npm run start:dev
 ```
 
-Restart a backend after changing `.env`. DEV uses Keycloak at `http://localhost:9091/auth`. The UI's checked-in public runtime file contains local-only defaults. Authentication uses PKCE S256 and validates callback state.
+Restart a backend after changing its `application-dev.yaml`. DEV uses Keycloak at `http://localhost:9091/auth`. The UI's checked-in public runtime file contains local-only defaults. Authentication uses PKCE S256 and validates callback state. The local core DEV YAML keeps Liquibase disabled, matching the working local session while pending database changes are resolved.
+
+Open the development UI at `http://localhost:4200` or its LAN address. DEV supports HTTP LAN origins using the same PKCE S256 challenge with secure random values and a JavaScript SHA-256 implementation when SubtleCrypto is unavailable. Allow the exact callback by running `python3 scripts/dev-lan.py 192.168.0.219` in the infrastructure repository. The DEV server binds to all interfaces and proxies `/auth` to Keycloak, keeping browser login, theme assets and form submissions on the UI host. Restart the DEV server after changing proxy configuration. Keycloak's internal canonical issuer stays unchanged for backend token validation. SIT and PROD still require HTTPS.
 
 ## Delivery
 
@@ -98,3 +100,34 @@ The validated target is passed to image tagging, GitHub Environment selection, s
 Application administration requires the exact Keycloak realm role `ADMIN` in `realm_access.roles`. A matching username alone grants no privileges. The BFF recognizes ADMIN, OWNER, COACH and STAFF, prioritizing ADMIN when multiple roles exist; the UI supports the same role names. Master-realm bootstrap accounts manage Keycloak infrastructure and are not application accounts.
 
 The infrastructure repository bootstraps one initial human admin per environment using Variables `INITIAL_ADMIN_USERNAME` / `INITIAL_ADMIN_EMAIL` and Secret `INITIAL_ADMIN_PASSWORD` on the infrastructure GitHub Environment. New users must change the temporary password at first login; PROD additionally requires TOTP setup. Existing users keep their password and required actions on reapply. No human-admin password enters application runtime configuration or Angular. Configure additional users/admins through normal lifecycle operations. Existing username-only administrators must receive the ADMIN realm role before deploying this application revision.
+
+## Academy training setup
+
+Academy owners can use `/academy/sports`, `/academy/staff` and `/academy/batches`. An `ACADEMY` organization type or customer plan enables the module. First owner login opens incomplete setup unless skipped; Sports and Continue training setup stay available. Desktop uses a sidebar and mobile a collapsible academy menu. Existing club, billing and court/table paths are preserved. This release base contains facility navigation but no implemented court/table screens; capability-specific links reuse the existing Play Areas path.
+
+Sports offers 42 seeded catalogue activities, searchable multiple selection, academy-local Other activities, training/session capability settings and safe deactivation. Badminton supports court sessions; Snooker and Pool/Billiards support table sessions. Sport pages contain Overview, Batches and Coaches tabs. Sports registrations do not replace the customer's subscription plan or legacy sports field.
+
+Staff uses existing APP_USER/Keycloak identities with separate academy memberships, COACH/STAFF roles and sport assignments. An existing exact username/email is reused without changing its password. New staff use Keycloak account-action invitations for password setup and email verification. The membership commits before email delivery; `STAFF_INVITATION_FAILED_SAVED` means it exists and Send invitation retries delivery. Configure Keycloak realm SMTP for real invitation delivery; application customer-onboarding SMTP settings do not configure Keycloak SMTP.
+
+Batches can be drafted without coaches/schedules. Activation requires at least one active academy coach assigned to the sport and a valid weekly schedule. An optional lead must be among assigned coaches. Schedules use the academy's IANA timezone (default Asia/Kolkata), require increasing times and valid effective dates, and reject internal overlaps and assigned-coach conflicts with other active batches in that academy. Historical schedule rows and inactive batches are retained. Facility allocation, student management and attendance are outside this module.
+
+The existing BFF forwards `/api/academy/**` to core. Backend derives academy ownership from the authenticated OWNER's active APP_USER/customer record and checks entitlement. No caller-supplied academy ID grants access. List APIs support pagination and search/status filtering. Updates carry `version`; stale writes return 409. Academy row locks serialize mutations, including simultaneous batch activations. Composite foreign keys prevent cross-academy sport/coach joins. Current management screens/APIs are owner-only; coaches/staff receive membership and identity roles but no setup-management permission.
+
+Migration `db/changelog/features/R1_10_academy_training/01-academy-training.xml` uses `${ARENA_DB_SCHEMA}` throughout. It adds customer timezone/skipped settings plus SPORT_CATALOGUE, ACADEMY_SPORT, ACADEMY_STAFF, ACADEMY_STAFF_SPORT, TRAINING_BATCH, BATCH_COACH and BATCH_SCHEDULE. Existing data is preserved; Liquibase applies and seeds once.
+
+Local checks:
+
+```bash
+npm --prefix arena-ui test
+npm --prefix arena-ui run build -- --configuration production
+bash deploy/validate.sh
+bash deploy/validate-db-schema.sh  # disposable local PostgreSQL; full backend/migration suite
+bash deploy/validate-ui.sh         # local isolated Nginx containers; academy deep routes
+mvn --batch-mode -f arena-login/pom.xml verify
+```
+
+The Confluence-ready design is maintained locally in `docs/academy-training-setup.md`, excluded from Git with other documentation folders. Changes stay local for review; no infrastructure deployment is required to review them.
+
+## Academy Setup MVP v1.0
+
+See [implementation, authorization, migrations and local installation](ACADEMY-MVP.md) and [gap analysis](MVP-PLAN.md). The feature adds the dashboard checklist, per-sport operations, optional staff identities, multi-role access and tenant play areas. Install the Keycloak provider/email theme and apply Liquibase before running the new workflow.

@@ -14,11 +14,13 @@ public final class BillingTypes {
   public enum Outcome { PAID, FAILED, CANCELLED }
   public record Plan(String id, String name, Cycle cycle, BigDecimal baseAmount,
       BigDecimal taxAmount, BigDecimal total, String currency) {}
+  @io.swagger.v3.oas.annotations.media.Schema(additionalProperties=io.swagger.v3.oas.annotations.media.Schema.AdditionalPropertiesValue.FALSE)
   public record CreateOrder(@NotBlank @Size(max=40) String planId, @NotNull Cycle cycle, @NotNull UUID requestId) {
     /** Rejects hidden tenant or amount fields rather than silently accepting manipulated requests. */
     @com.fasterxml.jackson.annotation.JsonAnySetter
     public void rejectUnknown(String field, Object value) { throw new IllegalArgumentException("Unexpected billing field"); }
   }
+  @io.swagger.v3.oas.annotations.media.Schema(additionalProperties=io.swagger.v3.oas.annotations.media.Schema.AdditionalPropertiesValue.FALSE)
   public record MockResult(@NotNull UUID attemptId, @NotNull Outcome outcome) {
     /** Keeps the simulator contract free of payment credentials and client-supplied amounts. */
     @com.fasterxml.jackson.annotation.JsonAnySetter

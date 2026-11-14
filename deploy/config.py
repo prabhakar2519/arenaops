@@ -10,6 +10,9 @@ import sys
 
 REQUIRED = ('ARENA_DB_SCHEMA', 'ARENA_DB_NAME', 'ARENA_DB_USERNAME', 'ARENA_DB_PASSWORD', 'KC_BFF_CLIENT_SECRET')
 OPTIONAL_DEFAULTS = {
+    'PUBLIC_CLUB_PREVIEW_ENABLED': 'false', 'PUBLIC_CLUB_HOSTING_READY': 'false',
+    'PUBLIC_CLUB_HOST_KEY': '', 'PUBLIC_CLUB_DOMAIN': 'arenaops.in',
+    'PUBLIC_CLUB_SCHEME': 'https', 'PUBLIC_CLUB_PORT': '',
     'ARENAOPS_MAIL_ENABLED': 'false',
     'BREVO_SMTP_HOST': 'smtp-relay.brevo.com', 'BREVO_SMTP_PORT': '587',
     'BREVO_SMTP_USERNAME': '', 'BREVO_SMTP_PASSWORD': '', 'ARENAOPS_MAIL_FROM': '',
@@ -71,6 +74,15 @@ def configuration(values):
                 raise ConfigError(key + ' is required when email is enabled')
     login = {key: value for key, value in common.items() if not key.startswith('ARENA_DB_') and key != 'KC_BFF_CLIENT_SECRET'}
     login.update(APP_BASE_URL=origin, APP_CORS_ALLOWED_ORIGINS=origin, SESSION_COOKIE_SECURE='true', ARENA_CORE_URL='http://' + environment + '-arena-core:7701')
+    public = {key: values.get(key) or OPTIONAL_DEFAULTS[key] for key in OPTIONAL_DEFAULTS if key.startswith('PUBLIC_CLUB_')}
+    if public['PUBLIC_CLUB_HOST_KEY'] and len(public['PUBLIC_CLUB_HOST_KEY']) < 32:
+        raise ConfigError('PUBLIC_CLUB_HOST_KEY must be empty (disabled) or at least 32 characters')
+    if public['PUBLIC_CLUB_PREVIEW_ENABLED'] not in ('true', 'false') or public['PUBLIC_CLUB_HOSTING_READY'] not in ('true', 'false'):
+        raise ConfigError('Public website feature flags must be true or false')
+    if environment == 'prod' and public['PUBLIC_CLUB_PREVIEW_ENABLED'] == 'true':
+        raise ConfigError('Path-based public preview cannot be enabled in production')
+    core.update(public)
+    login.update(public)
     compose = dict(ARENA_ENV=environment, COMPOSE_PROJECT_NAME='arenaops-' + environment + '-app',
                    ARENAOPS_NETWORK='arenaops-' + environment, ARENAOPS_TARGET='/opt/arenaops/' + environment,
                    IMAGE_REPOSITORY=values['IMAGE_REPOSITORY'], IMAGE_TAG=values['IMAGE_TAG'])

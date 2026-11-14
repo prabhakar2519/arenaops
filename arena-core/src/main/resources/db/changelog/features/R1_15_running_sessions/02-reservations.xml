@@ -1,0 +1,11 @@
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.17.xsd">
+ <changeSet id="academy-running-sessions-02-reservations" author="arena">
+  <sql><![CDATA[
+ALTER TABLE ${ARENA_DB_SCHEMA}.academy_running_session DROP CONSTRAINT academy_running_session_status_check;
+ALTER TABLE ${ARENA_DB_SCHEMA}.academy_running_session ADD CONSTRAINT academy_running_session_status_check CHECK(status IN ('STARTED','RESERVED','STOPPED','UNCONFIRMED','CANCELLED'));
+DROP INDEX ${ARENA_DB_SCHEMA}.academy_running_session_one_active;
+CREATE UNIQUE INDEX academy_running_session_one_active ON ${ARENA_DB_SCHEMA}.academy_running_session(academy_id,facility_id) WHERE status IN ('STARTED','RESERVED');
+CREATE INDEX academy_running_session_unsettled ON ${ARENA_DB_SCHEMA}.academy_running_session(academy_id,started_at,id) WHERE status='UNCONFIRMED' OR (status='STOPPED' AND total_amount>paid_amount);
+  ]]></sql>
+ </changeSet>
+</databaseChangeLog>

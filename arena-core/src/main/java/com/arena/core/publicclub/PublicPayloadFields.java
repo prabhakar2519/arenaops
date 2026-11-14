@@ -1,0 +1,10 @@
+package com.arena.core.publicclub;
+import java.io.*;import java.lang.reflect.Type;import java.util.*;
+import org.springframework.web.bind.annotation.RestControllerAdvice;import org.springframework.web.servlet.mvc.method.annotation.RequestBodyAdviceAdapter;import org.springframework.core.MethodParameter;import org.springframework.http.*;import org.springframework.http.converter.*;import com.fasterxml.jackson.databind.ObjectMapper;
+/** Reject extra public fields without changing private-module Jackson contracts. */
+@RestControllerAdvice
+public class PublicPayloadFields extends RequestBodyAdviceAdapter {
+ private static final Map<String,Set<String>> FIELDS=Map.of("inspect",Set.of("token"),"submit",Set.of("token","name","mobile","privacyAccepted","requestId","formToken","website"),"request",Set.of("requestId","facilityId","start","duration","name","mobile","privacyAccepted","website"));
+ public boolean supports(MethodParameter parameter,Type target,Class<? extends HttpMessageConverter<?>> converter){return Set.of("FacilityCheckinController","PublicClubController").contains(parameter.getContainingClass().getSimpleName())&&FIELDS.containsKey(parameter.getMethod().getName());}
+ @Override public HttpInputMessage beforeBodyRead(HttpInputMessage input,MethodParameter parameter,Type target,Class<? extends HttpMessageConverter<?>> converter)throws IOException{byte[] bytes=input.getBody().readNBytes(2049);com.fasterxml.jackson.databind.JsonNode node;try{node=new ObjectMapper().readTree(bytes);}catch(com.fasterxml.jackson.core.JacksonException e){throw new HttpMessageNotReadableException("Invalid public payload",input);}var allowed=FIELDS.get(parameter.getMethod().getName());if(bytes.length>2048||node==null||!node.isObject())throw new HttpMessageNotReadableException("Invalid public payload",input);var names=node.fieldNames();while(names.hasNext())if(!allowed.contains(names.next()))throw new HttpMessageNotReadableException("Unsupported public field",input);return new HttpInputMessage(){public HttpHeaders getHeaders(){return input.getHeaders();}public InputStream getBody(){return new ByteArrayInputStream(bytes);}};}
+}

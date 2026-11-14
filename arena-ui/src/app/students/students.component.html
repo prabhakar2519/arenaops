@@ -1,0 +1,72 @@
+<section class="students-page">
+  <header class="page-heading">
+    <div><p class="eyebrow">ACADEMY OPERATIONS</p><h1>Students &amp; Members</h1><p>One student profile across sports and training programmes.</p></div>
+    <button class="primary" type="button" (click)="newStudent()">＋ Add student</button>
+  </header>
+
+  <div class="feedback error" *ngIf="error" role="alert">{{ error }}</div>
+
+
+  <div class="toolbar">
+    <label class="search"><span>Search students</span><input [(ngModel)]="search" (keyup.enter)="filter()" placeholder="Name, student ID, guardian or contact"></label>
+    <label>Status<select [(ngModel)]="status" (change)="filter()"><option value="">All statuses</option><option value="ACTIVE">Active</option><option value="INACTIVE">Inactive</option></select></label>
+    <button class="secondary" type="button" (click)="filter()">Search</button>
+  </div>
+
+  <div class="loading" *ngIf="loading" role="status">Loading students…</div>
+  <div class="empty" *ngIf="!loading && students.length === 0">
+    <h2>No students found</h2><p>{{ search || status ? 'Adjust your search or filters.' : 'Register a student to get started.' }}</p>
+    <button class="secondary" *ngIf="!search && !status" type="button" (click)="newStudent()">Add the first student</button>
+  </div>
+
+  <div class="table-scroll" *ngIf="!loading && students.length">
+    <table>
+      <thead><tr><th>Student</th><th>Student ID</th><th>Sports</th><th>Guardian</th><th>Status</th><th><span class="sr-only">Actions</span></th></tr></thead>
+      <tbody><tr *ngFor="let student of students">
+        <td><button class="text-action" type="button" (click)="loadEnrollments(student)">{{ student.firstName }} {{ student.lastName }}</button><small *ngIf="student.dateOfBirth">DOB {{ student.dateOfBirth | date:'mediumDate' }}</small></td>
+        <td>{{ student.studentCode }}</td>
+        <td><span *ngIf="!student.sportIds.length" class="muted">Not assigned</span><span *ngFor="let id of student.sportIds; let last = last">{{ sportName(id) }}<span *ngIf="!last">, </span></span></td>
+        <td>{{ student.guardianName || '—' }}<small *ngIf="student.guardianPhone">{{ student.guardianPhone }}</small></td>
+        <td><span class="status" [class.inactive]="student.status === 'INACTIVE'">{{ student.status === 'ACTIVE' ? 'Active' : 'Inactive' }}</span></td>
+        <td class="actions"><button class="icon-action" type="button" (click)="editStudent(student)" [attr.aria-label]="'Edit ' + student.firstName" title="Edit">✎</button><button class="icon-action" type="button" (click)="toggleStatus(student)" [attr.aria-label]="(student.status === 'ACTIVE' ? 'Deactivate ' : 'Activate ') + student.firstName" [title]="student.status === 'ACTIVE' ? 'Deactivate' : 'Activate'">{{ student.status === 'ACTIVE' ? '⊘' : '✓' }}</button></td>
+      </tr></tbody>
+    </table>
+    <footer class="pagination"><span>{{ students.length }} shown</span><div><button class="secondary" type="button" [disabled]="page === 0" (click)="paginate(-1)">Previous</button><span>Page {{ page + 1 }} of {{ totalPages || 1 }}</span><button class="secondary" type="button" [disabled]="page + 1 >= totalPages" (click)="paginate(1)">Next</button></div></footer>
+  </div>
+
+  <aside class="profile" *ngIf="selected" aria-label="Student profile">
+    <button class="close" type="button" (click)="selected = null" aria-label="Close profile">×</button>
+    <p class="eyebrow">{{ selected.studentCode }}</p><h2>{{ selected.firstName }} {{ selected.lastName }}</h2>
+    <span class="status" [class.inactive]="selected.status === 'INACTIVE'">{{ selected.status === 'ACTIVE' ? 'Active' : 'Inactive' }}</span>
+    <dl><dt>Date of birth</dt><dd>{{ selected.dateOfBirth ? (selected.dateOfBirth | date:'mediumDate') : '—' }}</dd><dt>Student contact</dt><dd>{{ selected.email || '—' }}<br>{{ selected.phone || '' }}</dd><dt>Parent / guardian</dt><dd>{{ selected.guardianName || '—' }}<br>{{ selected.guardianPhone || '' }}<br>{{ selected.guardianEmail || '' }}</dd><dt>Emergency contact</dt><dd>{{ selected.emergencyContact || '—' }}</dd><dt>Sports</dt><dd>{{ selected.sportIds.length ? sportNames(selected.sportIds) : 'Not assigned' }}</dd><dt>Notes</dt><dd>{{ selected.notes || '—' }}</dd></dl>
+    <section class="enrollments"><h3>Training enrollments</h3><div class="enroll-row" *ngFor="let enrollment of enrollments"><div><strong>{{ enrollment.batchName }}</strong><small>{{ enrollment.startDate | date:'mediumDate' }}<span *ngIf="enrollment.endDate"> – {{ enrollment.endDate | date:'mediumDate' }}</span></small></div><span class="status" [class.inactive]="enrollment.status !== 'ACTIVE'">{{ enrollment.status }}</span><button *ngIf="enrollment.status === 'ACTIVE'" class="text-action" type="button" (click)="endEnrollment(enrollment)">End</button></div><p *ngIf="!enrollments.length" class="muted">No enrollment history.</p>
+      <div class="enroll-form" *ngIf="selected.status === 'ACTIVE'"><label>Enroll in batch<select [(ngModel)]="enrollmentBatchId"><option [ngValue]="0">Choose a compatible batch</option><option *ngFor="let batch of availableBatches" [ngValue]="batch.id">{{ batch.name }}</option></select></label><label>Start date<input type="date" [(ngModel)]="enrollmentStartDate"></label><button class="secondary" type="button" [disabled]="!enrollmentBatchId" (click)="enrollSelected()">Enroll</button></div>
+    </section>
+    <section class="credentials"><h3>Attendance QR</h3><p class="muted">Issue a replacement QR credential. The previous credential is revoked and the new code is shown once.</p><button class="secondary" type="button" [disabled]="qrBusy" (click)="issueQr()">{{ qrBusy ? 'Issuing…' : 'Issue / replace QR' }}</button><img *ngIf="qrImage" class="qr-image" [src]="qrImage" alt="Student attendance QR credential"><span *ngIf="qrImage" class="muted">Show this QR at check-in. Keep the image private.</span></section>
+    <button class="secondary" type="button" (click)="editStudent(selected)">Edit profile</button>
+  </aside>
+
+  <div class="modal-backdrop" *ngIf="formOpen" (click)="closeForm()">
+    <form class="student-form" (ngSubmit)="save()" (click)="$event.stopPropagation()" #studentForm="ngForm">
+      <header><div><p class="eyebrow">STUDENT RECORD</p><h2>{{ editing ? 'Edit student' : 'Register student' }}</h2></div><button class="close" type="button" (click)="closeForm()" aria-label="Close form">×</button></header>
+      <div class="form-error" *ngIf="error" role="alert">{{ error }}</div>
+      <div class="form-grid">
+        <label>First name<input name="firstName" [(ngModel)]="form.firstName" required maxlength="100" autocomplete="given-name"></label>
+        <label>Last name<input name="lastName" [(ngModel)]="form.lastName" required maxlength="100" autocomplete="family-name"></label>
+        <label>Date of birth<input name="dateOfBirth" [(ngModel)]="form.dateOfBirth" type="date"></label>
+        <label>Gender <span class="optional">Optional</span><select name="gender" [(ngModel)]="form.gender"><option value="">Not specified</option><option>Female</option><option>Male</option><option>Non-binary</option><option>Prefer not to say</option></select></label>
+        <label>Student email <span class="optional">Optional</span><input name="email" [(ngModel)]="form.email" type="email" maxlength="255" autocomplete="email"></label>
+        <label>Student phone <span class="optional">Optional</span><input name="phone" [(ngModel)]="form.phone" maxlength="50" autocomplete="tel"></label>
+        <label>Parent / guardian<input name="guardianName" [(ngModel)]="form.guardianName" maxlength="160"></label>
+        <label>Guardian phone<input name="guardianPhone" [(ngModel)]="form.guardianPhone" maxlength="50"></label>
+        <label>Guardian email<input name="guardianEmail" [(ngModel)]="form.guardianEmail" type="email" maxlength="255"></label>
+        <label>Emergency contact<input name="emergencyContact" [(ngModel)]="form.emergencyContact" maxlength="100"></label>
+        <label class="wide">Address <span class="optional">Optional</span><input name="address" [(ngModel)]="form.address" maxlength="1000" autocomplete="street-address"></label>
+        <label class="wide">Notes <span class="optional">Optional</span><textarea name="notes" [(ngModel)]="form.notes" maxlength="1000" rows="3"></textarea></label>
+      </div>
+      <fieldset><legend>Registered sports</legend><p *ngIf="!sports.length" class="muted">Register sports in Setup &amp; Management first.</p><label class="sport-choice" *ngFor="let sport of sports"><input type="checkbox" [checked]="selectedSports.has(sport.id)" (change)="toggleSport(sport.id)">{{ sport.name }}</label></fieldset>
+      <label class="status-field" *ngIf="editing">Status<select name="status" [(ngModel)]="form.status"><option value="ACTIVE">Active</option><option value="INACTIVE">Inactive</option></select></label>
+      <footer><button class="secondary" type="button" (click)="closeForm()">Cancel</button><button class="primary" type="submit" [disabled]="studentForm.invalid || saving">{{ saving ? 'Saving…' : 'Save student' }}</button></footer>
+    </form>
+  </div>
+</section>

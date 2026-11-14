@@ -22,6 +22,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class AppUserEntity {
+  private String keycloakSubject;
 
   @Id
   @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "app_user_seq")

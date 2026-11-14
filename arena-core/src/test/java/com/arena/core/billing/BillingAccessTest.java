@@ -16,7 +16,7 @@ class BillingAccessTest {
     var jwt = Jwt.withTokenValue("test").header("alg","none").subject("owner").build();
     var users = mock(AppUserRepository.class); var access = mock(CustomerAccessService.class);
     var authorization = new AdminAuthorizationService();
-    var controller = new AccessController(users,authorization,access);
+    var controller = new AccessController(users,authorization,access,mock(com.arena.core.training.StaffLoginService.class));
     var owner = AppUserEntity.builder().role("OWNER").isActive(true).customerId(1L).build();
     when(users.findByUsername("owner")).thenReturn(Optional.of(owner));
     for (var code : new ErrorCode[]{ErrorCode.PAYMENT_REQUIRED,ErrorCode.SUBSCRIPTION_EXPIRED}) {
