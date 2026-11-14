@@ -8,6 +8,7 @@ import lombok.Data;
 public class InvitationValidationRequest {
 
   @NotBlank
+  @io.swagger.v3.oas.annotations.media.Schema(accessMode=io.swagger.v3.oas.annotations.media.Schema.AccessMode.WRITE_ONLY,description="Synthetic example only; never persist or log this value in documentation")
   private String activationCode;
 
   @NotBlank

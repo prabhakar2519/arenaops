@@ -12,5 +12,7 @@ public class AdminGracePeriodRequest {
   @Future
   private LocalDateTime endsAt;
 
+  @io.swagger.v3.oas.annotations.media.Schema(types={"string","null"})
+
   private String reason;
 }

@@ -1,0 +1,39 @@
+/* Structural additions only. Existing card, theme and typography rules stay untouched. */
+.reference-hero.information-layout { display:block;min-height:0; }
+.information-layout>.metrics-panel { margin-top:24px; }
+.information-layout .snapshot-grid { grid-template-columns:repeat(4,minmax(0,1fr)); }
+.dashboard-attention { margin-bottom:24px; }
+.attention-list { list-style:none;padding:0;margin:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px; }
+.attention-list li+li { margin-top:0; }
+.attention-list a { color:var(--text-main);text-decoration:none;display:block; }
+.attention-list a:hover { text-decoration:underline; }
+.attention-list .hint { display:block;margin:4px 0 0; }
+.operational-summary { margin-top:24px; }
+.operational-summary .snapshot-grid { grid-template-columns:repeat(4,minmax(0,1fr)); }
+.operational-links { display:flex;gap:12px;flex-wrap:wrap;margin-top:16px; }
+@media(max-width:700px) { .attention-list { grid-template-columns:1fr; } .information-layout .snapshot-grid,.operational-summary .snapshot-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+
+/* Compact surrounding dashboard space; KPI and facility card rules stay intact. */
+.dashboard { padding-top:24px; }
+.reference-hero.information-layout { margin-bottom:20px; }
+.information-layout .club-copy { padding-top:0; }
+.information-layout .club-copy h1 { margin-bottom:8px; }
+.information-layout .hero-sport-tags { margin-top:12px; }
+.information-layout>.metrics-panel { margin-top:16px; }
+.information-layout .snapshot-heading { margin-bottom:12px; }
+.dashboard-attention { margin-bottom:20px; }
+.dashboard>.tabs { margin-bottom:20px; }
+@media(max-width:600px) { .dashboard { padding-top:20px; } }
+/* Offset the wider narrow-desktop sidebar using surrounding space, not KPI cards. */
+@media(min-width:901px) and (max-width:1100px) {
+  .dashboard { padding-inline:calc(clamp(18px,3vw,40px) - 9px); }
+}
+
+/* ENH-020: compact actionable warning using the existing semantic surfaces. */
+.attention-banner {margin:14px 0 0;padding:12px 16px;border:1px solid var(--warning-accent);border-radius:var(--radius,12px);background:var(--warning-soft);color:var(--warning);}
+.attention-summary {display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+.attention-summary h2 {font-size:var(--text-body);font-weight:600;margin:0;}
+.attention-summary>span:first-child {font-weight:700;}
+.attention-banner .attention-list {display:flex;flex-wrap:wrap;gap:8px 20px;margin:6px 0 0;}
+.attention-banner .attention-list a {color:var(--warning);text-decoration:underline;text-underline-offset:3px;line-height:1.5;}
+.floor-filters small {color:var(--text-muted);}

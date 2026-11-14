@@ -24,9 +24,23 @@ import org.springframework.web.servlet.resource.NoResourceFoundException;
 @RestControllerAdvice
 @Slf4j
 public class GlobalExceptionHandler {
+    @ExceptionHandler(com.arena.core.facility.FacilityFailure.class)
+    public ResponseEntity<Map<String,Object>> facility(com.arena.core.facility.FacilityFailure ex,HttpServletRequest request){
+        var base=ApiErrors.body(ex.getErrorCode(),ex.getErrorCode().getStatus(),request,ex.getFields());
+        Map<String,Object> body=new LinkedHashMap<>();body.put("timestamp",base.timestamp());body.put("status",base.status());body.put("errorCode",base.errorCode());body.put("reasonCode",ex.getReasonCode());body.put("description",base.description());body.put("path",base.path());body.put("correlationId",base.correlationId());body.put("fieldErrors",ex.getFields());body.put("conflicts",ex.getConflicts());
+        return ResponseEntity.status(base.status()).header(CorrelationIdFilter.HEADER,base.correlationId()).body(body);
+    }
+
+    @ExceptionHandler(org.springframework.web.multipart.MaxUploadSizeExceededException.class)
+    public ResponseEntity<ErrorResponse> uploadTooLarge(Exception ex,HttpServletRequest request){return ApiErrors.response(ErrorCode.LOGO_TOO_LARGE,request);}
+
+    @ExceptionHandler(com.arena.core.training.ActivitySelectionException.class)
+    public ResponseEntity<ErrorResponse> selection(com.arena.core.training.ActivitySelectionException ex,HttpServletRequest request){return ResponseEntity.badRequest().body(ApiErrors.body(ErrorCode.VALIDATION_FAILED,400,request,ex.fields()));}
+
     @ExceptionHandler(ArenaOpsException.class)
     public ResponseEntity<ErrorResponse> business(ArenaOpsException ex, HttpServletRequest request) {
         log.info("Request rejected correlationId={} errorCode={}", CorrelationIdFilter.correlationId(request), ex.getErrorCode());
+        if(ex.getErrorCode()==ErrorCode.DUPLICATE_USERNAME||ex.getErrorCode()==ErrorCode.DUPLICATE_EMAIL){String field=ex.getErrorCode()==ErrorCode.DUPLICATE_USERNAME?"username":"email";return ResponseEntity.status(409).body(ApiErrors.body(ex.getErrorCode(),409,request,Map.of(field,ex.getErrorCode().getDescription())));}
         return ApiErrors.response(ex.getErrorCode(), request);
     }
 
@@ -54,9 +68,10 @@ public class GlobalExceptionHandler {
         return ResponseEntity.badRequest().body(ApiErrors.body(ErrorCode.VALIDATION_FAILED, 400, request, fields));
     }
 
-    @ExceptionHandler({HttpMessageNotReadableException.class, MissingServletRequestParameterException.class,
+    @ExceptionHandler({org.springframework.web.bind.MissingRequestHeaderException.class, org.springframework.web.multipart.support.MissingServletRequestPartException.class, org.springframework.web.multipart.MultipartException.class, HttpMessageNotReadableException.class, MissingServletRequestParameterException.class,
             MethodArgumentTypeMismatchException.class, IllegalArgumentException.class})
     public ResponseEntity<ErrorResponse> invalidRequest(Exception ex, HttpServletRequest request) {
+        if("/api/public/club/reservations".equals(request.getRequestURI()))return ApiErrors.response(ErrorCode.PUBLIC_BOOKING_INVALID_DETAILS,request);
         return ApiErrors.response(ErrorCode.INVALID_REQUEST, request);
     }
 
@@ -96,8 +111,12 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(status).body(ApiErrors.body(ErrorCode.forStatus(status), status, request, null));
     }
 
+    @ExceptionHandler(org.springframework.dao.DataAccessResourceFailureException.class)
+    public ResponseEntity<ErrorResponse> storageUnavailable(Exception ex,HttpServletRequest request){return ApiErrors.response(ErrorCode.SERVICE_UNAVAILABLE,request);}
+
     @ExceptionHandler(org.springframework.dao.DataIntegrityViolationException.class)
     public ResponseEntity<ErrorResponse> integrity(org.springframework.dao.DataIntegrityViolationException ex, HttpServletRequest request) {
+        if(request.getRequestURI().startsWith("/api/v1/academies/"))return ApiErrors.response(ErrorCode.FACILITY_CONCURRENCY_FAILURE,request);
         for (Throwable cause = ex; cause != null; cause = cause.getCause()) {
             if (cause instanceof org.hibernate.exception.ConstraintViolationException violation
                     && "ux_customer_owner_email_normalized".equals(violation.getConstraintName())) {
@@ -110,6 +129,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler({org.springframework.dao.OptimisticLockingFailureException.class,
             org.springframework.dao.PessimisticLockingFailureException.class})
     public ResponseEntity<ErrorResponse> concurrentUpdate(Exception ex, HttpServletRequest request) {
+        if(request.getRequestURI().startsWith("/api/v1/academies/"))return ApiErrors.response(ErrorCode.FACILITY_CONCURRENCY_FAILURE,request);
         return ApiErrors.response(ErrorCode.CONFLICT, request);
     }
 

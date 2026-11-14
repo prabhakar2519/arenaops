@@ -8,5 +8,9 @@ dt { opacity: .8; }
 .actions p { flex-basis: 100%; }
 button { padding: .7rem 1rem; border: 1px solid var(--accent-gold, #b09b61); border-radius: 6px; cursor: pointer; }
 button:disabled { opacity: .5; cursor: wait; }
-.error { padding: 1rem; color: #d84343; }
+.error { padding: 1rem; color: var(--danger); }
 @media (max-width: 480px) { dl { grid-template-columns: 1fr; } dd { margin-bottom: .5rem; } }
+
+.billing{font-family:var(--font-main);font-size:var(--text-body);line-height:var(--leading-body);padding:var(--space-5);margin:0 auto;max-width:1100px;color:var(--text-main)}h1{font-family:var(--font-heading);font-size:var(--text-title);line-height:var(--leading-heading);font-weight:var(--weight-semibold)}h2{font-family:var(--font-heading);font-size:var(--text-section);font-weight:var(--weight-semibold)}h3{font-size:var(--text-card)}.card{border:1px solid var(--border-main);background:var(--bg-card);box-shadow:var(--shadow-main);border-radius:var(--radius);padding:var(--space-5)}button{font-size:var(--text-label);font-weight:var(--weight-semibold);min-height:44px;background:var(--brand);border-color:var(--brand);color:var(--on-primary);border-radius:var(--radius-sm)}button:hover:not(:disabled){background:var(--brand-hover)}dt{opacity:1;color:var(--text-muted);font-size:var(--text-label)}dd{font-size:var(--text-body)}.error{color:var(--danger)}@media(max-width:600px){.billing{padding:var(--space-4)}.plans{grid-template-columns:1fr}}
+
+h1 { font-weight:700; }

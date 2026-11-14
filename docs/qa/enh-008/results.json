@@ -1,0 +1,23 @@
+{
+  "date": "2026-11-14",
+  "frontendTests": 202,
+  "frontendFailures": 0,
+  "build": "passed",
+  "typecheck": "passed",
+  "playwright": {
+    "startTime": "2026-11-14T11:51:55.130Z",
+    "duration": 73441.74900000001,
+    "expected": 66,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  },
+  "appearanceChecks": {
+    "startTime": "2026-11-14T11:54:34.020Z",
+    "duration": 6057.384,
+    "expected": 2,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  }
+}

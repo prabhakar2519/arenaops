@@ -1,0 +1,157 @@
+{
+  "date": "2026-11-14",
+  "scope": "ENH-013\u2013018",
+  "frontendUnit": {
+    "tests": 207,
+    "failures": 0,
+    "command": "npm --prefix arena-ui test"
+  },
+  "backend": [
+    {
+      "module": "arena-core",
+      "suite": "SessionCheckoutIntegrationTest",
+      "tests": 30,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "module": "arena-core",
+      "suite": "PublicClubsIntegrationTest",
+      "tests": 47,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "module": "arena-core",
+      "suite": "RunningSessionServiceTest",
+      "tests": 22,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "module": "arena-core",
+      "suite": "FacilityCheckinIntegrationTest",
+      "tests": 15,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "module": "arena-core",
+      "suite": "PublicHostContractTest",
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "module": "arena-core",
+      "suite": "PublicCheckinRateLimitTest",
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "module": "arena-core",
+      "suite": "OpenApiContractTest",
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "module": "arena-core",
+      "suite": "DocumentationSecurityTest",
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "module": "arena-login",
+      "suite": "PublicCheckinProxyTest",
+      "tests": 14,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "module": "arena-login",
+      "suite": "OpenApiContractTest",
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "module": "arena-login",
+      "suite": "DocumentationSecurityTest",
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    }
+  ],
+  "browser": {
+    "stats": {
+      "startTime": "2026-11-14T16:06:48.800Z",
+      "duration": 122973.04599999999,
+      "expected": 112,
+      "skipped": 0,
+      "unexpected": 0,
+      "flaky": 0
+    },
+    "command": "npm --prefix arena-ui run e2e -- e2e/specs/consolidated-dashboard.spec.ts e2e/specs/dashboard.spec.ts e2e/specs/checkin.spec.ts e2e/specs/facility-qr-grid.spec.ts",
+    "fixtureIsolation": true
+  },
+  "openapi": {
+    "coreOperations": 137,
+    "loginOperations": 21,
+    "verified": true
+  },
+  "limitations": [
+    "Backend integration uses isolated H2/JPA, not live PostgreSQL/Keycloak.",
+    "Browser APIs are isolated route fixtures; actual workbook content is reopened in backend POI tests.",
+    "Physical phone scanning and print-spooler checks remain manual."
+  ],
+  "migration": null,
+  "builds": [
+    {
+      "command": "npm --prefix arena-ui run build",
+      "exitCode": 0
+    },
+    {
+      "command": "npm --prefix arena-ui run e2e:typecheck",
+      "exitCode": 0
+    },
+    {
+      "command": "mvn -q -f arena-core/pom.xml -DskipTests package",
+      "exitCode": 0
+    },
+    {
+      "command": "mvn -q -f arena-login/pom.xml -DskipTests package",
+      "exitCode": 0
+    },
+    {
+      "command": "scripts/export-openapi.sh --update",
+      "exitCode": 0
+    },
+    {
+      "command": "python3 scripts/validate-openapi.py",
+      "exitCode": 0
+    },
+    {
+      "command": "git diff --check",
+      "exitCode": 0
+    }
+  ],
+  "finalBundleSmoke": {
+    "command": "npm --prefix arena-ui run e2e -- --grep 'UI-02|Customers sidebar preserves'",
+    "passed": 4,
+    "failed": 0
+  }
+}

@@ -178,7 +178,7 @@ public class TokenService {
                 }
             }
 
-            String primaryRole = List.of("ADMIN", "OWNER", "COACH", "STAFF").stream()
+            String primaryRole = List.of("PLATFORM_ADMIN", "ADMIN", "OWNER", "MANAGER", "INSTRUCTOR", "COACH", "STAFF").stream()
                     .filter(roles::contains).findFirst().orElse("USER");
 
             return UserInfo.builder()

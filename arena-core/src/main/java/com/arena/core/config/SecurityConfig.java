@@ -40,6 +40,8 @@ public class SecurityConfig {
                         org.springframework.security.config.http.SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(authorize -> authorize
                         // Public endpoints
+                        .requestMatchers(HttpMethod.GET,"/api/public/club","/api/public/club/logo").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/public/facility-check-ins/inspect", "/api/public/facility-check-ins/submit","/api/public/club/reservations").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/users").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/registration/validate-invitation").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/registration/activate").permitAll()

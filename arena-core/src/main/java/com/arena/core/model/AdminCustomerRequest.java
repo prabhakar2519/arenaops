@@ -14,7 +14,11 @@ public class AdminCustomerRequest {
   @NotBlank
   private String customerName;
 
+  @io.swagger.v3.oas.annotations.media.Schema(types={"string","null"})
+
   private String parlourName;
+
+  @io.swagger.v3.oas.annotations.media.Schema(types={"string","null"})
 
   private String organizationType;
 
@@ -37,13 +41,19 @@ public class AdminCustomerRequest {
   @NotNull
   private Integer invitationExpiryDays;
 
+  @io.swagger.v3.oas.annotations.media.Schema(types={"string","null"})
+
   private String subscriptionType;
 
   @NotNull
   @DecimalMin("0.00")
   private BigDecimal billingAmount;
 
+  @io.swagger.v3.oas.annotations.media.Schema(types={"string","null"})
+
   private String billingCurrency;
+
+  @io.swagger.v3.oas.annotations.media.Schema(types={"string","null"})
 
   private String notes;
 }

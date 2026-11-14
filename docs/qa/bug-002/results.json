@@ -1,0 +1,131 @@
+{
+  "date": "2026-11-14",
+  "bug": "BUG-002",
+  "frontend": {
+    "tests": 208,
+    "failures": 0
+  },
+  "backend": {
+    "core": {
+      "StaffRegistrationConsistencyTest": {
+        "tests": 14,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "StaffRegistrationApiTest": {
+        "tests": 3,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "StaffLoginServiceTest": {
+        "tests": 14,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "StaffRegistrationTest": {
+        "tests": 9,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "StaffIdentityTest": {
+        "tests": 7,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "SecurityErrorContractTest": {
+        "tests": 1,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "OpenApiContractTest": {
+        "tests": 2,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "DocumentationSecurityTest": {
+        "tests": 1,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      }
+    },
+    "login": {
+      "StaffRegistrationProxyTest": {
+        "tests": 3,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "TokenServiceErrorTest": {
+        "tests": 1,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "OpenApiContractTest": {
+        "tests": 2,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "DocumentationSecurityTest": {
+        "tests": 1,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      }
+    }
+  },
+  "backendTotal": 58,
+  "angularBuild": "passed",
+  "playwrightTypecheck": "passed",
+  "browser": {
+    "projects": [
+      "desktop-light",
+      "tablet-dark"
+    ],
+    "combinedRegression": {
+      "tests": 44,
+      "passed": 44,
+      "failed": 0
+    },
+    "finalStaffRun": {
+      "tests": 26,
+      "passed": 26,
+      "failed": 0
+    },
+    "distinctPassingCases": 46,
+    "screenshotsInspected": true
+  },
+  "apiDocumentation": {
+    "coreOperations": 136,
+    "loginOperations": 21,
+    "schemaAndSourceCoverage": "passed"
+  },
+  "migration": {
+    "file": "arena-core/src/main/resources/db/changelog/features/R1_10_academy_training/07-staff-registration.xml",
+    "wellFormedXml": true,
+    "appliedToLivePostgres": false,
+    "columns": [
+      "registration_request_id",
+      "registration_hash",
+      "login_email"
+    ],
+    "existingDataRewritten": false
+  },
+  "diffWhitespaceCheck": "passed",
+  "limitations": [
+    "Browser APIs and Keycloak Admin API are mocked.",
+    "Database failure/concurrency tests use real H2 transactions and unique constraints, not live PostgreSQL.",
+    "Live Keycloak, SMTP and PostgreSQL migration deployment validation remain to be executed in an isolated environment.",
+    "Incomplete operations retain tracked inactive intents and require explicit retry/reconciliation.",
+    "No live services or historical partial staff records were changed."
+  ]
+}

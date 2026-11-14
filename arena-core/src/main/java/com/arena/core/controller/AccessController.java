@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+@io.swagger.v3.oas.annotations.tags.Tag(name="Access")
 @RestController
 @RequestMapping("/api/access")
 @RequiredArgsConstructor
@@ -24,8 +25,11 @@ public class AccessController {
   private final AppUserRepository appUserRepository;
   private final AdminAuthorizationService adminAuthorizationService;
   private final CustomerAccessService customerAccessService;
+  private final com.arena.core.training.StaffLoginService staffLogin;
 
-  @GetMapping("/check")
+  @io.swagger.v3.oas.annotations.Operation(summary="Check current account access", description="Authenticated account. Reconciles staff activation and checks current tenant entitlement. Expired active Owners may receive allowed=false and billingAllowed=true so they can reach billing.")
+ @com.arena.core.documentation.DocumentedErrors({com.arena.core.exception.ErrorCode.CUSTOMER_ACCESS_BLOCKED,com.arena.core.exception.ErrorCode.PAYMENT_REQUIRED,com.arena.core.exception.ErrorCode.SERVICE_UNAVAILABLE,com.arena.core.exception.ErrorCode.SUBSCRIPTION_ACCESS_BLOCKED,com.arena.core.exception.ErrorCode.SUBSCRIPTION_EXPIRED,com.arena.core.exception.ErrorCode.USER_DISABLED})
+ @GetMapping("/check")
   public ResponseEntity<Map<String, Boolean>> check(@AuthenticationPrincipal Jwt jwt) {
     if (adminAuthorizationService.isAdmin(jwt)) {
       return ResponseEntity.ok(Map.of("allowed", true));
@@ -34,6 +38,7 @@ public class AccessController {
     String username = adminAuthorizationService.resolveUsername(jwt);
     AppUserEntity user = appUserRepository.findByUsername(username)
         .orElseThrow(() -> new ArenaOpsException(ErrorCode.CUSTOMER_ACCESS_BLOCKED));
+    staffLogin.reconcile(jwt,user);
     try {
       customerAccessService.assertCustomerCanUseApp(user);
     } catch (ArenaOpsException ex) {

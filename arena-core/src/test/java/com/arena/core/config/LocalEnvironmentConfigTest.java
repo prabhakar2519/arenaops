@@ -13,9 +13,10 @@ import static org.junit.jupiter.api.Assertions.*;
 class LocalEnvironmentConfigTest {
   @TempDir Path directory;
 
-  /** Proves module and repository-root launches find the same local settings and exported values override them. */
-  @Test void devLoadsRootFileFromEitherDirectoryAndEnvironmentTakesPrecedence() throws Exception {
+  /** Proves explicit dev YAML settings work from either launch directory; .env stays infrastructure-only. */
+  @Test void devLoadsProfileYamlFromEitherDirectoryAndEnvironmentTakesPrecedence() throws Exception {
     Files.writeString(directory.resolve(".env"), "ARENA_DB_PASSWORD=file-test-password\nKC_BFF_CLIENT_SECRET=file-test-secret\n");
+    prepareConfiguration();
     Path module = Files.createDirectory(directory.resolve("arena-core"));
     runProbe(module, "dev", false);
     runProbe(directory, "dev", false);
@@ -25,15 +26,25 @@ class LocalEnvironmentConfigTest {
   /** Keeps the production profile isolated from a local secret file even if one exists beside the application. */
   @Test void remoteProfilesDoNotImportLocalEnvironmentFile() throws Exception {
     Files.writeString(directory.resolve(".env"), "ARENA_DB_PASSWORD=file-test-password\nKC_BFF_CLIENT_SECRET=file-test-secret\n");
+    prepareConfiguration();
     runProbe(directory, "sit", false);
     runProbe(directory, "prod", false);
+  }
+
+  private void prepareConfiguration() throws Exception {
+    for (String file : new String[]{"application.yaml","application-sit.yaml","application-prod.yaml"}) {
+      try (var source = getClass().getResourceAsStream("/" + file)) {
+        if (source != null) Files.copy(source, directory.resolve(file));
+      }
+    }
+    Files.writeString(directory.resolve("application-dev.yaml"), "spring:\n  datasource:\n    password: ${ARENA_DB_PASSWORD:dev-yaml-test-password}\nkeycloak-admin:\n  realm: arena-dev\n  client-secret: dev-yaml-test-secret\n");
   }
 
   /** Runs a minimal child JVM so file lookup uses the same working-directory rules as a Maven launch. */
   private void runProbe(Path workingDirectory, String profile, boolean override) throws Exception {
     Path output = directory.resolve("probe-output.txt");
     ProcessBuilder builder = new ProcessBuilder(Path.of(System.getProperty("java.home"), "bin", "java").toString(),
-        "-cp", System.getProperty("java.class.path"), Probe.class.getName(), profile, Boolean.toString(override));
+        "-cp", System.getProperty("java.class.path"), Probe.class.getName(), profile, Boolean.toString(override), directory.resolve("application.yaml").toUri().toString());
     builder.directory(workingDirectory.toFile()).redirectErrorStream(true).redirectOutput(output.toFile());
     builder.environment().remove("ARENA_DB_PASSWORD");
     builder.environment().remove("KC_BFF_CLIENT_SECRET");
@@ -54,7 +65,7 @@ class LocalEnvironmentConfigTest {
       String profile = arguments[0];
       SpringApplication application = new SpringApplication(Probe.class);
       try (var context = application.run("--spring.profiles.active=" + profile,
-          "--spring.config.location=classpath:application.yaml", "--spring.main.web-application-type=none",
+          "--spring.config.location=" + arguments[2], "--spring.main.web-application-type=none",
           "--spring.main.banner-mode=off", "--logging.level.root=OFF", "--logging.level.com.arena=OFF")) {
         var environment = context.getEnvironment();
         String expectedRealm = profile.equals("prod") ? "arena" : profile.equals("sit") ? "arena-sit" : "arena-dev";
@@ -64,10 +75,10 @@ class LocalEnvironmentConfigTest {
           if (environment.getProperty("ARENA_DB_PASSWORD") != null || environment.getProperty("KC_BFF_CLIENT_SECRET") != null)
             throw new IllegalStateException("Production unexpectedly imported local configuration");
         } else {
-          String expected = Boolean.parseBoolean(arguments[1]) ? "exported-test-password" : "file-test-password";
+          String expected = Boolean.parseBoolean(arguments[1]) ? "exported-test-password" : "dev-yaml-test-password";
           if (!expected.equals(environment.getProperty("spring.datasource.password"))
-              || !"file-test-secret".equals(environment.getProperty("keycloak-admin.client-secret")))
-            throw new IllegalStateException("Local credentials did not resolve from the expected source");
+              || !"dev-yaml-test-secret".equals(environment.getProperty("keycloak-admin.client-secret")))
+            throw new IllegalStateException("Local credentials did not resolve from the dev YAML");
         }
       }
     }

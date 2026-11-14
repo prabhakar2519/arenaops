@@ -77,8 +77,6 @@ class BrevoEmailServiceTest {
 
   @Test
   void logsNestedAuthenticationFailureWithoutSecrets(org.springframework.boot.test.system.CapturedOutput output) {
-    ReflectionTestUtils.setField(emailService, "smtpPassword", "test-secret-password");
-    ReflectionTestUtils.setField(emailService, "smtpUsername", "test-smtp-login");
     var cause = new jakarta.mail.AuthenticationFailedException(
         "535 Authentication rejected test-secret-password test-smtp-login owner@example.com ARENA-ABCD-2345");
     var failure = new org.springframework.mail.MailAuthenticationException("Authentication failed", cause);

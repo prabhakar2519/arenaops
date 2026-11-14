@@ -1,16 +1,4 @@
-.main-content {
-    @media (max-width: 860px) {
-        padding-bottom: calc(7rem + env(safe-area-inset-bottom, 0px));
-    }
-}
-.api-error-banner {
-  display: flex;
-  justify-content: space-between;
-  gap: 1rem;
-  padding: 1rem;
-  margin: 1rem;
-  border: 1px solid #b42318;
-  border-radius: 8px;
-  color: var(--text-main);
-  background: var(--bg-card);
-}
+.workspace-layout.authenticated { display:grid; grid-template-columns:240px minmax(0,1fr); min-height:calc(100dvh - 76px); background-color:var(--bg-primary); background-image:var(--bg-gradient); }
+.main-content { min-width:0; }
+@media(max-width:1100px) and (min-width:901px) { .workspace-layout.authenticated { grid-template-columns:230px minmax(0,1fr); } }
+@media(max-width:900px) { .workspace-layout.authenticated { grid-template-columns:1fr; } }

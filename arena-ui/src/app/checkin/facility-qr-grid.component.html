@@ -1,0 +1,9 @@
+<p class="qr-description">Permanent facility check-in codes. Scanning submits customer details for staff approval; it does not start or reserve a session. Publishing a club website is not required.</p>
+<div class="qr-grid"><article *ngFor="let card of cards" class="qr-card" [attr.aria-label]="'QR for '+card.facility.code">
+ <header><h3>{{label(card)}}</h3><p>{{card.facility.facilityType?.replaceAll('_',' ') | titlecase}}</p></header>
+ <p *ngIf="card.loading" role="status">Loading QR…</p>
+ <ng-container *ngIf="card.image && card.eligible"><img [src]="card.image" [alt]="'Check-in QR for '+card.facility.code" width="320" height="320"><div class="qr-actions"><a class="btn btn-primary" [href]="card.image" [download]="card.facility.code+'-qr.png'" (click)="downloaded(card)">Download QR</a><button type="button" (click)="print(card)">Print QR</button></div></ng-container>
+ <p *ngIf="!card.eligible" class="hint">{{unavailable(card)}}</p>
+ <div *ngIf="card.error" class="qr-error"><p role="alert">{{card.error}}</p><button type="button" (click)="load(card)" [disabled]="card.loading">Retry QR</button><a *ngIf="auth.hasRole('OWNER')" [routerLink]="['/academy/facility-qr',card.facility.facilityId]">Manage or replace QR</a></div>
+ <a *ngIf="card.image && auth.hasRole('OWNER')" class="manage-link" [routerLink]="['/academy/facility-qr',card.facility.facilityId]">Manage QR</a>
+</article></div>

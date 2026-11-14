@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+ <changeSet id="06-facility-resources" author="arenaops">
+  <sql><![CDATA[
+ALTER TABLE ${ARENA_DB_SCHEMA}.academy_play_area ADD COLUMN facility_type VARCHAR(30), ADD COLUMN display_name VARCHAR(160), ADD COLUMN hourly_rate NUMERIC(12,2), ADD COLUMN frame_rate NUMERIC(12,2);
+ALTER TABLE ${ARENA_DB_SCHEMA}.academy_play_area ADD CONSTRAINT facility_type_valid CHECK(facility_type IS NULL OR facility_type IN ('ENGLISH','FRENCH','POOL','SEMI_ENGLISH','COURT'));
+ALTER TABLE ${ARENA_DB_SCHEMA}.academy_play_area ADD CONSTRAINT facility_rates_valid CHECK((hourly_rate IS NULL OR hourly_rate>0) AND (frame_rate IS NULL OR frame_rate>0) AND (facility_type IS DISTINCT FROM 'COURT' OR frame_rate IS NULL));
+CREATE INDEX facility_sport_lookup ON ${ARENA_DB_SCHEMA}.academy_play_area(academy_id,sport_id,id);
+CREATE TABLE ${ARENA_DB_SCHEMA}.facility_code_counter (academy_id BIGINT NOT NULL, sport_id BIGINT NOT NULL, facility_type VARCHAR(30) NOT NULL, last_number BIGINT NOT NULL CHECK(last_number>=0), PRIMARY KEY(academy_id,sport_id,facility_type), FOREIGN KEY(sport_id,academy_id) REFERENCES ${ARENA_DB_SCHEMA}.academy_sport(id,academy_id));
+CREATE TABLE ${ARENA_DB_SCHEMA}.facility_operation (academy_id BIGINT NOT NULL, sport_id BIGINT NOT NULL, operation VARCHAR(30) NOT NULL, request_key VARCHAR(36) NOT NULL, fingerprint VARCHAR(64) NOT NULL, response TEXT NOT NULL, created_at TIMESTAMP NOT NULL, PRIMARY KEY(academy_id,operation,request_key), FOREIGN KEY(sport_id,academy_id) REFERENCES ${ARENA_DB_SCHEMA}.academy_sport(id,academy_id));
+CREATE INDEX facility_operation_created ON ${ARENA_DB_SCHEMA}.facility_operation(created_at);
+  ]]></sql>
+ </changeSet>
+</databaseChangeLog>

@@ -1,0 +1,2266 @@
+openapi: 3.1.0
+info:
+  description: "Code-first reference. Relative server is the current service origin.\
+    \ BFF session cookie, not a bearer token. Obtain the session through the existing\
+    \ browser PKCE flow; Swagger does not collect passwords. See Core specification\
+    \ for delegated resource APIs. Documentation access is separate from API authorization.\
+    \ Keycloak-native email verification/password setup is not an ArenaOps REST API.\
+    \ The global /error dispatch and implicit HEAD/OPTIONS are described in docs/api/README.md."
+  title: ArenaOps Login / BFF API
+  version: 1.0.0
+servers:
+- description: Current service origin
+  url: /
+paths:
+  /:
+    get:
+      description: Service metadata. Login root is public; Core root requires JWT.
+        Health endpoint is public. /api/me reports whether a Spring OAuth2 principal
+        exists and does not establish a BFF session. /register redirects to the configured
+        frontend registration page.
+      operationId: HomeController_home_get__
+      responses:
+        "200":
+          content:
+            application/json:
+              example:
+                service: arena-login
+                status: ready
+              schema:
+                $ref: "#/components/schemas/ServiceStatus"
+          description: Service response
+        "500":
+          content:
+            application/json:
+              examples:
+                INTERNAL_SERVER_ERROR:
+                  description: Retry only when safe; retain idempotency keys for uncertain
+                    creation results. Supply the correlation ID to support.
+                  summary: INTERNAL_SERVER_ERROR
+                  value:
+                    correlationId: 00000000-0000-4000-8000-000000000001
+                    description: An unexpected error occurred while processing the
+                      request.
+                    errorCode: INTERNAL_SERVER_ERROR
+                    path: /
+                    status: 500
+                    timestamp: 2026-01-01T00:00:00Z
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: Request rejected; see named examples for error codes and recovery
+            guidance.
+      security: []
+      summary: Get service metadata
+      tags:
+      - Service metadata
+      x-handler: com.arena.login.controller.HomeController#home
+  /api/health:
+    get:
+      description: "BFF routes have /api-prefixed and root aliases, including supported\
+        \ trailing slashes. Bearer tokens remain server-side in the JSESSIONID session.\
+        \ Downstream Core errors are sanitized; facility conflicts and field errors\
+        \ are retained."
+      operationId: TokenController_health_get__api_health
+      responses:
+        "200":
+          content:
+            text/plain:
+              example: OK
+              schema:
+                type: string
+          description: OK
+        "500":
+          content:
+            application/json:
+              examples:
+                INTERNAL_SERVER_ERROR:
+                  description: Retry only when safe; retain idempotency keys for uncertain
+                    creation results. Supply the correlation ID to support.
+                  summary: INTERNAL_SERVER_ERROR
+                  value:
+                    correlationId: 00000000-0000-4000-8000-000000000001
+                    description: An unexpected error occurred while processing the
+                      request.
+                    errorCode: INTERNAL_SERVER_ERROR
+                    path: /api/health
+                    status: 500
+                    timestamp: 2026-01-01T00:00:00Z
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: Request rejected; see named examples for error codes and recovery
+            guidance.
+      security: []
+      summary: Check Login liveness
+      tags:
+      - Authentication / BFF
+      x-handler: com.arena.login.controller.TokenController#health
+  /api/health/:
+    get:
+      description: "BFF routes have /api-prefixed and root aliases, including supported\
+        \ trailing slashes. Bearer tokens remain server-side in the JSESSIONID session.\
+        \ Downstream Core errors are sanitized; facility conflicts and field errors\
+        \ are retained."
+      operationId: TokenController_health_get__api_health_
+      responses:
+        "200":
+          content:
+            text/plain:
+              example: OK
+              schema:
+                type: string
+          description: OK
+        "500":
+          content:
+            application/json:
+              examples:
+                INTERNAL_SERVER_ERROR:
+                  description: Retry only when safe; retain idempotency keys for uncertain
+                    creation results. Supply the correlation ID to support.
+                  summary: INTERNAL_SERVER_ERROR
+                  value:
+                    correlationId: 00000000-0000-4000-8000-000000000001
+                    description: An unexpected error occurred while processing the
+                      request.
+                    errorCode: INTERNAL_SERVER_ERROR
+                    path: /api/health/
+                    status: 500
+                    timestamp: 2026-01-01T00:00:00Z
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: Request rejected; see named examples for error codes and recovery
+            guidance.
+      security: []
+      summary: Check Login liveness
+      tags:
+      - Authentication / BFF
+      x-handler: com.arena.login.controller.TokenController#health
+  /api/logout:
+    post:
+      description: "BFF routes have /api-prefixed and root aliases, including supported\
+        \ trailing slashes. Bearer tokens remain server-side in the JSESSIONID session.\
+        \ Downstream Core errors are sanitized; facility conflicts and field errors\
+        \ are retained. Invalidates the local session; presence logout is best-effort.\
+        \ This does not itself perform Keycloak browser logout."
+      operationId: TokenController_logout_post__api_logout
+      responses:
+        "204":
+          description: Successful operation
+        "500":
+          content:
+            application/json:
+              examples:
+                INTERNAL_SERVER_ERROR:
+                  description: Retry only when safe; retain idempotency keys for uncertain
+                    creation results. Supply the correlation ID to support.
+                  summary: INTERNAL_SERVER_ERROR
+                  value:
+                    correlationId: 00000000-0000-4000-8000-000000000001
+                    description: An unexpected error occurred while processing the
+                      request.
+                    errorCode: INTERNAL_SERVER_ERROR
+                    path: /api/logout
+                    status: 500
+                    timestamp: 2026-01-01T00:00:00Z
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: Request rejected; see named examples for error codes and recovery
+            guidance.
+      security: []
+      summary: Invalidate the local BFF session
+      tags:
+      - Authentication / BFF
+      x-handler: com.arena.login.controller.TokenController#logout
+  /api/logout/:
+    post:
+      description: "BFF routes have /api-prefixed and root aliases, including supported\
+        \ trailing slashes. Bearer tokens remain server-side in the JSESSIONID session.\
+        \ Downstream Core errors are sanitized; facility conflicts and field errors\
+        \ are retained. Invalidates the local session; presence logout is best-effort.\
+        \ This does not itself perform Keycloak browser logout."
+      operationId: TokenController_logout_post__api_logout_
+      responses:
+        "204":
+          description: Successful operation
+        "500":
+          content:
+            application/json:
+              examples:
+                INTERNAL_SERVER_ERROR:
+                  description: Retry only when safe; retain idempotency keys for uncertain
+                    creation results. Supply the correlation ID to support.
+                  summary: INTERNAL_SERVER_ERROR
+                  value:
+                    correlationId: 00000000-0000-4000-8000-000000000001
+                    description: An unexpected error occurred while processing the
+                      request.
+                    errorCode: INTERNAL_SERVER_ERROR
+                    path: /api/logout/
+                    status: 500
+                    timestamp: 2026-01-01T00:00:00Z
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: Request rejected; see named examples for error codes and recovery
+            guidance.
+      security: []
+      summary: Invalidate the local BFF session
+      tags:
+      - Authentication / BFF
+      x-handler: com.arena.login.controller.TokenController#logout
+  /api/me:
+    get:
+      description: Service metadata. Login root is public; Core root requires JWT.
+        Health endpoint is public. /api/me reports whether a Spring OAuth2 principal
+        exists and does not establish a BFF session. /register redirects to the configured
+        frontend registration page.
+      operationId: HomeController_me_get__api_me
+      responses:
+        "200":
+          content:
+            application/json:
+              example:
+                authenticated: true
+                user: example
+              schema:
+                $ref: "#/components/schemas/PrincipalState"
+          description: Service response
+        "500":
+          content:
+            application/json:
+              examples:
+                INTERNAL_SERVER_ERROR:
+                  description: Retry only when safe; retain idempotency keys for uncertain
+                    creation results. Supply the correlation ID to support.
+                  summary: INTERNAL_SERVER_ERROR
+                  value:
+                    correlationId: 00000000-0000-4000-8000-000000000001
+                    description: An unexpected error occurred while processing the
+                      request.
+                    errorCode: INTERNAL_SERVER_ERROR
+                    path: /api/me
+                    status: 500
+                    timestamp: 2026-01-01T00:00:00Z
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: Request rejected; see named examples for error codes and recovery
+            guidance.
+      security: []
+      summary: Inspect the legacy Spring OAuth2 principal
+      tags:
+      - Service metadata
+      x-handler: com.arena.login.controller.HomeController#me
+  /api/readiness:
+    get:
+      description: "BFF routes have /api-prefixed and root aliases, including supported\
+        \ trailing slashes. Bearer tokens remain server-side in the JSESSIONID session.\
+        \ Downstream Core errors are sanitized; facility conflicts and field errors\
+        \ are retained. Public dependency readiness; returns status UP only when Core\
+        \ readiness succeeds, otherwise structured 503."
+      operationId: TokenController_readiness_get__api_readiness
+      responses:
+        "200":
+          content:
+            application/json:
+              example:
+                status: UP
+              schema:
+                $ref: "#/components/schemas/Readiness"
+          description: Core readiness succeeded
+        "500":
+          content:
+            application/json:
+              examples:
+                INTERNAL_SERVER_ERROR:
+                  description: Retry only when safe; retain idempotency keys for uncertain
+                    creation results. Supply the correlation ID to support.
+                  summary: INTERNAL_SERVER_ERROR
+                  value:
+                    correlationId: 00000000-0000-4000-8000-000000000001
+                    description: An unexpected error occurred while processing the
+                      request.
+                    errorCode: INTERNAL_SERVER_ERROR
+                    path: /api/readiness
+                    status: 500
+                    timestamp: 2026-01-01T00:00:00Z
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: Request rejected; see named examples for error codes and recovery
+            guidance.
+        "503":
+          content:
+            application/json:
+              examples:
+                SERVICE_UNAVAILABLE:
+                  description: Retry only when safe; retain idempotency keys for uncertain
+                    creation results. Supply the correlation ID to support.
+                  summary: SERVICE_UNAVAILABLE
+                  value:
+                    correlationId: 00000000-0000-4000-8000-000000000001
+                    description: ArenaOps is temporarily unavailable. Please try again
+                      shortly.
+                    errorCode: SERVICE_UNAVAILABLE
+                    path: /api/readiness
+                    status: 503
+                    timestamp: 2026-01-01T00:00:00Z
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: Request rejected; see named examples for error codes and recovery
+            guidance.
+      security: []
+      summary: Check Login and Core readiness
+      tags:
+      - Authentication / BFF
+      x-handler: com.arena.login.controller.TokenController#readiness
+  /api/token:
+    post:
+      description: "BFF routes have /api-prefixed and root aliases, including supported\
+        \ trailing slashes. Bearer tokens remain server-side in the JSESSIONID session.\
+        \ Downstream Core errors are sanitized; facility conflicts and field errors\
+        \ are retained. Public authorization-code exchange using the existing PKCE\
+        \ verifier. The authorization code is single-use; never replay it after an\
+        \ uncertain response. Returns UserInfo, never TokenResponse. Establishes a\
+        \ server-side session only after Core access validation. redirectUri must\
+        \ match the original browser authorization flow."
+      operationId: TokenController_validateToken_post__api_token
+      requestBody:
+        content:
+          application/json:
+            example:
+              code: C1
+              codeVerifier: EXAMPLE_ONLY_VERIFIER_012345678901234567890123456789
+              redirectUri: http://localhost:4200/login/callback
+            schema:
+              $ref: "#/components/schemas/TokenRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              example:
+                email: person@example.test
+                name: Example Academy
+                role: OWNER
+                roles:
+                - example
+                username: example.user
+              schema:
+                $ref: "#/components/schemas/UserInfo"
+          description: BFF user identity; no tokens returned
+        "400":
+          content:
+            application/json:
+              examples:
+                INVALID_REQUEST:
+                  description: Correct the request; do not retry unchanged.
+                  summary: INVALID_REQUEST
+                  value:
+                    correlationId: 00000000-0000-4000-8000-000000000001
+                    description: The request is invalid.
+                    errorCode: INVALID_REQUEST
+                    path: /api/token
+                    status: 400
+                    timestamp: 2026-01-01T00:00:00Z
+                VALIDATION_FAILED:
+                  description: Correct the request; do not retry unchanged.
+                  summary: VALIDATION_FAILED
+                  value:
+                    correlationId: 00000000-0000-4000-8000-000000000001
+                    description: The request contains invalid fields.
+                    errorCode: VALIDATION_FAILED
+                    fieldErrors:
+                      field: Review the validation rule for this field.
+                    path: /api/token
+                    reasonCode: INVALID_REQUEST_FIELDS
+                    status: 400
+                    timestamp: 2026-01-01T00:00:00Z
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: Request rejected; see named examples for error codes and recovery
+            guidance.
+        "401":
+          content:
+            application/json:
+              examples:
+                AUTHENTICATION_FAILED:
+                  description: Sign in again.
+                  summary: AUTHENTICATION_FAILED
+                  value:
+                    correlationId: 00000000-0000-4000-8000-000000000001
+                    description: Your sign-in session is invalid or expired. Please
+                      sign in again.
+                    errorCode: AUTHENTICATION_FAILED
+                    path: /api/token
+                    status: 401
+                    timestamp: 2026-01-01T00:00:00Z
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: Request rejected; see named examples for error codes and recovery
+            guidance.
+        "403":
+          content:
+            application/json:
+              examples:
+                ACCESS_DENIED:
+                  description: Use an authorized active account; do not change tenant
+                    identifiers to bypass access.
+                  summary: ACCESS_DENIED
+                  value:
+                    correlationId: 00000000-0000-4000-8000-000000000001
+                    description: You do not have permission to perform this operation.
+                    errorCode: ACCESS_DENIED
+                    path: /api/token
+                    status: 403
+                    timestamp: 2026-01-01T00:00:00Z
+                CUSTOMER_ACCESS_BLOCKED:
+                  description: Use an authorized active account; do not change tenant
+                    identifiers to bypass access.
+                  summary: CUSTOMER_ACCESS_BLOCKED
+                  value:
+                    correlationId: 00000000-0000-4000-8000-000000000001
+                    description: Your ArenaOps account does not currently have access.
+                      Please contact your administrator.
+                    errorCode: CUSTOMER_ACCESS_BLOCKED
+                    path: /api/token
+                    status: 403
+                    timestamp: 2026-01-01T00:00:00Z
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: Request rejected; see named examples for error codes and recovery
+            guidance.
+        "415":
+          content:
+            application/json:
+              examples:
+                UNSUPPORTED_MEDIA_TYPE:
+                  description: Correct the request; do not retry unchanged.
+                  summary: UNSUPPORTED_MEDIA_TYPE
+                  value:
+                    correlationId: 00000000-0000-4000-8000-000000000001
+                    description: This request format is not supported.
+                    errorCode: UNSUPPORTED_MEDIA_TYPE
+                    path: /api/token
+                    status: 415
+                    timestamp: 2026-01-01T00:00:00Z
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: Request rejected; see named examples for error codes and recovery
+            guidance.
+        "500":
+          content:
+            application/json:
+              examples:
+                INTERNAL_SERVER_ERROR:
+                  description: Retry only when safe; retain idempotency keys for uncertain
+                    creation results. Supply the correlation ID to support.
+                  summary: INTERNAL_SERVER_ERROR
+                  value:
+                    correlationId: 00000000-0000-4000-8000-000000000001
+                    description: An unexpected error occurred while processing the
+                      request.
+                    errorCode: INTERNAL_SERVER_ERROR
+                    path: /api/token
+                    status: 500
+                    timestamp: 2026-01-01T00:00:00Z
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: Request rejected; see named examples for error codes and recovery
+            guidance.
+        "503":
+          content:
+            application/json:
+              examples:
+                IDENTITY_PROVIDER_UNAVAILABLE:
+                  description: Retry only when safe; retain idempotency keys for uncertain
+                    creation results. Supply the correlation ID to support.
+                  summary: IDENTITY_PROVIDER_UNAVAILABLE
+                  value:
+                    correlationId: 00000000-0000-4000-8000-000000000001
+                    description: Sign-in services are temporarily unavailable. Please
+                      try again shortly.
+                    errorCode: IDENTITY_PROVIDER_UNAVAILABLE
+                    path: /api/token
+                    status: 503
+                    timestamp: 2026-01-01T00:00:00Z
+                SERVICE_UNAVAILABLE:
+                  description: Retry only when safe; retain idempotency keys for uncertain
+                    creation results. Supply the correlation ID to support.
+                  summary: SERVICE_UNAVAILABLE
+                  value:
+                    correlationId: 00000000-0000-4000-8000-000000000001
+                    description: ArenaOps is temporarily unavailable. Please try again
+                      shortly.
+                    errorCode: SERVICE_UNAVAILABLE
+                    path: /api/token
+                    status: 503
+                    timestamp: 2026-01-01T00:00:00Z
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: Request rejected; see named examples for error codes and recovery
+            guidance.
+      security: []
+      summary: Exchange a browser authorization code for a BFF session
+      tags:
+      - Authentication / BFF
+      x-handler: com.arena.login.controller.TokenController#validateToken
+  /api/token/:
+    post:
+      description: "BFF routes have /api-prefixed and root aliases, including supported\
+        \ trailing slashes. Bearer tokens remain server-side in the JSESSIONID session.\
+        \ Downstream Core errors are sanitized; facility conflicts and field errors\
+        \ are retained. Public authorization-code exchange using the existing PKCE\
+        \ verifier. The authorization code is single-use; never replay it after an\
+        \ uncertain response. Returns UserInfo, never TokenResponse. Establishes a\
+        \ server-side session only after Core access validation. redirectUri must\
+        \ match the original browser authorization flow."
+      operationId: TokenController_validateToken_post__api_token_
+      requestBody:
+        content:
+          application/json:
+            example:
+              code: C1
+              codeVerifier: EXAMPLE_ONLY_VERIFIER_012345678901234567890123456789
+              redirectUri: http://localhost:4200/login/callback
+            schema:
+              $ref: "#/components/schemas/TokenRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              example:
+                email: person@example.test
+                name: Example Academy
+                role: OWNER
+                roles:
+                - example
+                username: example.user
+              schema:
+                $ref: "#/components/schemas/UserInfo"
+          description: BFF user identity; no tokens returned
+        "400":
+          content:
+            application/json:
+              examples:
+                INVALID_REQUEST:
+                  description: Correct the request; do not retry unchanged.
+                  summary: INVALID_REQUEST
+                  value:
+                    correlationId: 00000000-0000-4000-8000-000000000001
+                    description: The request is invalid.
+                    errorCode: INVALID_REQUEST
+                    path: /api/token/
+                    status: 400
+                    timestamp: 2026-01-01T00:00:00Z
+                VALIDATION_FAILED:
+                  description: Correct the request; do not retry unchanged.
+                  summary: VALIDATION_FAILED
+                  value:
+                    correlationId: 00000000-0000-4000-8000-000000000001
+                    description: The request contains invalid fields.
+                    errorCode: VALIDATION_FAILED
+                    fieldErrors:
+                      field: Review the validation rule for this field.
+                    path: /api/token/
+                    reasonCode: INVALID_REQUEST_FIELDS
+                    status: 400
+                    timestamp: 2026-01-01T00:00:00Z
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: Request rejected; see named examples for error codes and recovery
+            guidance.
+        "401":
+          content:
+            application/json:
+              examples:
+                AUTHENTICATION_FAILED:
+                  description: Sign in again.
+                  summary: AUTHENTICATION_FAILED
+                  value:
+                    correlationId: 00000000-0000-4000-8000-000000000001
+                    description: Your sign-in session is invalid or expired. Please
+                      sign in again.
+                    errorCode: AUTHENTICATION_FAILED
+                    path: /api/token/
+                    status: 401
+                    timestamp: 2026-01-01T00:00:00Z
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: Request rejected; see named examples for error codes and recovery
+            guidance.
+        "403":
+          content:
+            application/json:
+              examples:
+                ACCESS_DENIED:
+                  description: Use an authorized active account; do not change tenant
+                    identifiers to bypass access.
+                  summary: ACCESS_DENIED
+                  value:
+                    correlationId: 00000000-0000-4000-8000-000000000001
+                    description: You do not have permission to perform this operation.
+                    errorCode: ACCESS_DENIED
+                    path: /api/token/
+                    status: 403
+                    timestamp: 2026-01-01T00:00:00Z
+                CUSTOMER_ACCESS_BLOCKED:
+                  description: Use an authorized active account; do not change tenant
+                    identifiers to bypass access.
+                  summary: CUSTOMER_ACCESS_BLOCKED
+                  value:
+                    correlationId: 00000000-0000-4000-8000-000000000001
+                    description: Your ArenaOps account does not currently have access.
+                      Please contact your administrator.
+                    errorCode: CUSTOMER_ACCESS_BLOCKED
+                    path: /api/token/
+                    status: 403
+                    timestamp: 2026-01-01T00:00:00Z
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: Request rejected; see named examples for error codes and recovery
+            guidance.
+        "415":
+          content:
+            application/json:
+              examples:
+                UNSUPPORTED_MEDIA_TYPE:
+                  description: Correct the request; do not retry unchanged.
+                  summary: UNSUPPORTED_MEDIA_TYPE
+                  value:
+                    correlationId: 00000000-0000-4000-8000-000000000001
+                    description: This request format is not supported.
+                    errorCode: UNSUPPORTED_MEDIA_TYPE
+                    path: /api/token/
+                    status: 415
+                    timestamp: 2026-01-01T00:00:00Z
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: Request rejected; see named examples for error codes and recovery
+            guidance.
+        "500":
+          content:
+            application/json:
+              examples:
+                INTERNAL_SERVER_ERROR:
+                  description: Retry only when safe; retain idempotency keys for uncertain
+                    creation results. Supply the correlation ID to support.
+                  summary: INTERNAL_SERVER_ERROR
+                  value:
+                    correlationId: 00000000-0000-4000-8000-000000000001
+                    description: An unexpected error occurred while processing the
+                      request.
+                    errorCode: INTERNAL_SERVER_ERROR
+                    path: /api/token/
+                    status: 500
+                    timestamp: 2026-01-01T00:00:00Z
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: Request rejected; see named examples for error codes and recovery
+            guidance.
+        "503":
+          content:
+            application/json:
+              examples:
+                IDENTITY_PROVIDER_UNAVAILABLE:
+                  description: Retry only when safe; retain idempotency keys for uncertain
+                    creation results. Supply the correlation ID to support.
+                  summary: IDENTITY_PROVIDER_UNAVAILABLE
+                  value:
+                    correlationId: 00000000-0000-4000-8000-000000000001
+                    description: Sign-in services are temporarily unavailable. Please
+                      try again shortly.
+                    errorCode: IDENTITY_PROVIDER_UNAVAILABLE
+                    path: /api/token/
+                    status: 503
+                    timestamp: 2026-01-01T00:00:00Z
+                SERVICE_UNAVAILABLE:
+                  description: Retry only when safe; retain idempotency keys for uncertain
+                    creation results. Supply the correlation ID to support.
+                  summary: SERVICE_UNAVAILABLE
+                  value:
+                    correlationId: 00000000-0000-4000-8000-000000000001
+                    description: ArenaOps is temporarily unavailable. Please try again
+                      shortly.
+                    errorCode: SERVICE_UNAVAILABLE
+                    path: /api/token/
+                    status: 503
+                    timestamp: 2026-01-01T00:00:00Z
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: Request rejected; see named examples for error codes and recovery
+            guidance.
+      security: []
+      summary: Exchange a browser authorization code for a BFF session
+      tags:
+      - Authentication / BFF
+      x-handler: com.arena.login.controller.TokenController#validateToken
+  /api/user:
+    get:
+      description: "BFF routes have /api-prefixed and root aliases, including supported\
+        \ trailing slashes. Bearer tokens remain server-side in the JSESSIONID session.\
+        \ Downstream Core errors are sanitized; facility conflicts and field errors\
+        \ are retained. Requires an established BFF session. Validates Core access,\
+        \ refreshes once on downstream 401, and returns UserInfo. Disabled/expired/revoked\
+        \ access may invalidate the session."
+      operationId: TokenController_getUserInfo_get__api_user
+      responses:
+        "200":
+          content:
+            application/json:
+              example:
+                email: person@example.test
+                name: Example Academy
+                role: OWNER
+                roles:
+                - example
+                username: example.user
+              schema:
+                $ref: "#/components/schemas/UserInfo"
+          description: BFF user identity; no tokens returned
+        "401":
+          content:
+            application/json:
+              examples:
+                AUTHENTICATION_FAILED:
+                  description: Sign in again.
+                  summary: AUTHENTICATION_FAILED
+                  value:
+                    correlationId: 00000000-0000-4000-8000-000000000001
+                    description: Your sign-in session is invalid or expired. Please
+                      sign in again.
+                    errorCode: AUTHENTICATION_FAILED
+                    path: /api/user
+                    status: 401
+                    timestamp: 2026-01-01T00:00:00Z
+                AUTHENTICATION_REQUIRED:
+                  description: Sign in again.
+                  summary: AUTHENTICATION_REQUIRED
+                  value:
+                    correlationId: 00000000-0000-4000-8000-000000000001
+                    description: Please sign in to continue.
+                    errorCode: AUTHENTICATION_REQUIRED
+                    path: /api/user
+                    status: 401
+                    timestamp: 2026-01-01T00:00:00Z
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: Request rejected; see named examples for error codes and recovery
+            guidance.
+        "403":
+          content:
+            application/json:
+              examples:
+                ACCESS_DENIED:
+                  description: Use an authorized active account; do not change tenant
+                    identifiers to bypass access.
+                  summary: ACCESS_DENIED
+                  value:
+                    correlationId: 00000000-0000-4000-8000-000000000001
+                    description: You do not have permission to perform this operation.
+                    errorCode: ACCESS_DENIED
+                    path: /api/user
+                    status: 403
+                    timestamp: 2026-01-01T00:00:00Z
+                CUSTOMER_ACCESS_BLOCKED:
+                  description: Use an authorized active account; do not change tenant
+                    identifiers to bypass access.
+                  summary: CUSTOMER_ACCESS_BLOCKED
+                  value:
+                    correlationId: 00000000-0000-4000-8000-000000000001
+                    description: Your ArenaOps account does not currently have access.
+                      Please contact your administrator.
+                    errorCode: CUSTOMER_ACCESS_BLOCKED
+                    path: /api/user
+                    status: 403
+                    timestamp: 2026-01-01T00:00:00Z
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: Request rejected; see named examples for error codes and recovery
+            guidance.
+        "500":
+          content:
+            application/json:
+              examples:
+                INTERNAL_SERVER_ERROR:
+                  description: Retry only when safe; retain idempotency keys for uncertain
+                    creation results. Supply the correlation ID to support.
+                  summary: INTERNAL_SERVER_ERROR
+                  value:
+                    correlationId: 00000000-0000-4000-8000-000000000001
+                    description: An unexpected error occurred while processing the
+                      request.
+                    errorCode: INTERNAL_SERVER_ERROR
+                    path: /api/user
+                    status: 500
+                    timestamp: 2026-01-01T00:00:00Z
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: Request rejected; see named examples for error codes and recovery
+            guidance.
+        "503":
+          content:
+            application/json:
+              examples:
+                SERVICE_UNAVAILABLE:
+                  description: Retry only when safe; retain idempotency keys for uncertain
+                    creation results. Supply the correlation ID to support.
+                  summary: SERVICE_UNAVAILABLE
+                  value:
+                    correlationId: 00000000-0000-4000-8000-000000000001
+                    description: ArenaOps is temporarily unavailable. Please try again
+                      shortly.
+                    errorCode: SERVICE_UNAVAILABLE
+                    path: /api/user
+                    status: 503
+                    timestamp: 2026-01-01T00:00:00Z
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: Request rejected; see named examples for error codes and recovery
+            guidance.
+      security:
+      - sessionCookie: []
+      summary: Validate the BFF session and get the user
+      tags:
+      - Authentication / BFF
+      x-handler: com.arena.login.controller.TokenController#getUserInfo
+  /api/user/:
+    get:
+      description: "BFF routes have /api-prefixed and root aliases, including supported\
+        \ trailing slashes. Bearer tokens remain server-side in the JSESSIONID session.\
+        \ Downstream Core errors are sanitized; facility conflicts and field errors\
+        \ are retained. Requires an established BFF session. Validates Core access,\
+        \ refreshes once on downstream 401, and returns UserInfo. Disabled/expired/revoked\
+        \ access may invalidate the session."
+      operationId: TokenController_getUserInfo_get__api_user_
+      responses:
+        "200":
+          content:
+            application/json:
+              example:
+                email: person@example.test
+                name: Example Academy
+                role: OWNER
+                roles:
+                - example
+                username: example.user
+              schema:
+                $ref: "#/components/schemas/UserInfo"
+          description: BFF user identity; no tokens returned
+        "401":
+          content:
+            application/json:
+              examples:
+                AUTHENTICATION_FAILED:
+                  description: Sign in again.
+                  summary: AUTHENTICATION_FAILED
+                  value:
+                    correlationId: 00000000-0000-4000-8000-000000000001
+                    description: Your sign-in session is invalid or expired. Please
+                      sign in again.
+                    errorCode: AUTHENTICATION_FAILED
+                    path: /api/user/
+                    status: 401
+                    timestamp: 2026-01-01T00:00:00Z
+                AUTHENTICATION_REQUIRED:
+                  description: Sign in again.
+                  summary: AUTHENTICATION_REQUIRED
+                  value:
+                    correlationId: 00000000-0000-4000-8000-000000000001
+                    description: Please sign in to continue.
+                    errorCode: AUTHENTICATION_REQUIRED
+                    path: /api/user/
+                    status: 401
+                    timestamp: 2026-01-01T00:00:00Z
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: Request rejected; see named examples for error codes and recovery
+            guidance.
+        "403":
+          content:
+            application/json:
+              examples:
+                ACCESS_DENIED:
+                  description: Use an authorized active account; do not change tenant
+                    identifiers to bypass access.
+                  summary: ACCESS_DENIED
+                  value:
+                    correlationId: 00000000-0000-4000-8000-000000000001
+                    description: You do not have permission to perform this operation.
+                    errorCode: ACCESS_DENIED
+                    path: /api/user/
+                    status: 403
+                    timestamp: 2026-01-01T00:00:00Z
+                CUSTOMER_ACCESS_BLOCKED:
+                  description: Use an authorized active account; do not change tenant
+                    identifiers to bypass access.
+                  summary: CUSTOMER_ACCESS_BLOCKED
+                  value:
+                    correlationId: 00000000-0000-4000-8000-000000000001
+                    description: Your ArenaOps account does not currently have access.
+                      Please contact your administrator.
+                    errorCode: CUSTOMER_ACCESS_BLOCKED
+                    path: /api/user/
+                    status: 403
+                    timestamp: 2026-01-01T00:00:00Z
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: Request rejected; see named examples for error codes and recovery
+            guidance.
+        "500":
+          content:
+            application/json:
+              examples:
+                INTERNAL_SERVER_ERROR:
+                  description: Retry only when safe; retain idempotency keys for uncertain
+                    creation results. Supply the correlation ID to support.
+                  summary: INTERNAL_SERVER_ERROR
+                  value:
+                    correlationId: 00000000-0000-4000-8000-000000000001
+                    description: An unexpected error occurred while processing the
+                      request.
+                    errorCode: INTERNAL_SERVER_ERROR
+                    path: /api/user/
+                    status: 500
+                    timestamp: 2026-01-01T00:00:00Z
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: Request rejected; see named examples for error codes and recovery
+            guidance.
+        "503":
+          content:
+            application/json:
+              examples:
+                SERVICE_UNAVAILABLE:
+                  description: Retry only when safe; retain idempotency keys for uncertain
+                    creation results. Supply the correlation ID to support.
+                  summary: SERVICE_UNAVAILABLE
+                  value:
+                    correlationId: 00000000-0000-4000-8000-000000000001
+                    description: ArenaOps is temporarily unavailable. Please try again
+                      shortly.
+                    errorCode: SERVICE_UNAVAILABLE
+                    path: /api/user/
+                    status: 503
+                    timestamp: 2026-01-01T00:00:00Z
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: Request rejected; see named examples for error codes and recovery
+            guidance.
+      security:
+      - sessionCookie: []
+      summary: Validate the BFF session and get the user
+      tags:
+      - Authentication / BFF
+      x-handler: com.arena.login.controller.TokenController#getUserInfo
+  /health:
+    get:
+      description: "BFF routes have /api-prefixed and root aliases, including supported\
+        \ trailing slashes. Bearer tokens remain server-side in the JSESSIONID session.\
+        \ Downstream Core errors are sanitized; facility conflicts and field errors\
+        \ are retained."
+      operationId: TokenController_health_get__health
+      responses:
+        "200":
+          content:
+            text/plain:
+              example: OK
+              schema:
+                type: string
+          description: OK
+        "500":
+          content:
+            application/json:
+              examples:
+                INTERNAL_SERVER_ERROR:
+                  description: Retry only when safe; retain idempotency keys for uncertain
+                    creation results. Supply the correlation ID to support.
+                  summary: INTERNAL_SERVER_ERROR
+                  value:
+                    correlationId: 00000000-0000-4000-8000-000000000001
+                    description: An unexpected error occurred while processing the
+                      request.
+                    errorCode: INTERNAL_SERVER_ERROR
+                    path: /health
+                    status: 500
+                    timestamp: 2026-01-01T00:00:00Z
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: Request rejected; see named examples for error codes and recovery
+            guidance.
+      security: []
+      summary: Check Login liveness
+      tags:
+      - Authentication / BFF
+      x-handler: com.arena.login.controller.TokenController#health
+  /health/:
+    get:
+      description: "BFF routes have /api-prefixed and root aliases, including supported\
+        \ trailing slashes. Bearer tokens remain server-side in the JSESSIONID session.\
+        \ Downstream Core errors are sanitized; facility conflicts and field errors\
+        \ are retained."
+      operationId: TokenController_health_get__health_
+      responses:
+        "200":
+          content:
+            text/plain:
+              example: OK
+              schema:
+                type: string
+          description: OK
+        "500":
+          content:
+            application/json:
+              examples:
+                INTERNAL_SERVER_ERROR:
+                  description: Retry only when safe; retain idempotency keys for uncertain
+                    creation results. Supply the correlation ID to support.
+                  summary: INTERNAL_SERVER_ERROR
+                  value:
+                    correlationId: 00000000-0000-4000-8000-000000000001
+                    description: An unexpected error occurred while processing the
+                      request.
+                    errorCode: INTERNAL_SERVER_ERROR
+                    path: /health/
+                    status: 500
+                    timestamp: 2026-01-01T00:00:00Z
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: Request rejected; see named examples for error codes and recovery
+            guidance.
+      security: []
+      summary: Check Login liveness
+      tags:
+      - Authentication / BFF
+      x-handler: com.arena.login.controller.TokenController#health
+  /logout:
+    post:
+      description: "BFF routes have /api-prefixed and root aliases, including supported\
+        \ trailing slashes. Bearer tokens remain server-side in the JSESSIONID session.\
+        \ Downstream Core errors are sanitized; facility conflicts and field errors\
+        \ are retained. Invalidates the local session; presence logout is best-effort.\
+        \ This does not itself perform Keycloak browser logout."
+      operationId: TokenController_logout_post__logout
+      responses:
+        "204":
+          description: Successful operation
+        "500":
+          content:
+            application/json:
+              examples:
+                INTERNAL_SERVER_ERROR:
+                  description: Retry only when safe; retain idempotency keys for uncertain
+                    creation results. Supply the correlation ID to support.
+                  summary: INTERNAL_SERVER_ERROR
+                  value:
+                    correlationId: 00000000-0000-4000-8000-000000000001
+                    description: An unexpected error occurred while processing the
+                      request.
+                    errorCode: INTERNAL_SERVER_ERROR
+                    path: /logout
+                    status: 500
+                    timestamp: 2026-01-01T00:00:00Z
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: Request rejected; see named examples for error codes and recovery
+            guidance.
+      security: []
+      summary: Invalidate the local BFF session
+      tags:
+      - Authentication / BFF
+      x-handler: com.arena.login.controller.TokenController#logout
+  /logout/:
+    post:
+      description: "BFF routes have /api-prefixed and root aliases, including supported\
+        \ trailing slashes. Bearer tokens remain server-side in the JSESSIONID session.\
+        \ Downstream Core errors are sanitized; facility conflicts and field errors\
+        \ are retained. Invalidates the local session; presence logout is best-effort.\
+        \ This does not itself perform Keycloak browser logout."
+      operationId: TokenController_logout_post__logout_
+      responses:
+        "204":
+          description: Successful operation
+        "500":
+          content:
+            application/json:
+              examples:
+                INTERNAL_SERVER_ERROR:
+                  description: Retry only when safe; retain idempotency keys for uncertain
+                    creation results. Supply the correlation ID to support.
+                  summary: INTERNAL_SERVER_ERROR
+                  value:
+                    correlationId: 00000000-0000-4000-8000-000000000001
+                    description: An unexpected error occurred while processing the
+                      request.
+                    errorCode: INTERNAL_SERVER_ERROR
+                    path: /logout/
+                    status: 500
+                    timestamp: 2026-01-01T00:00:00Z
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: Request rejected; see named examples for error codes and recovery
+            guidance.
+      security: []
+      summary: Invalidate the local BFF session
+      tags:
+      - Authentication / BFF
+      x-handler: com.arena.login.controller.TokenController#logout
+  /readiness:
+    get:
+      description: "BFF routes have /api-prefixed and root aliases, including supported\
+        \ trailing slashes. Bearer tokens remain server-side in the JSESSIONID session.\
+        \ Downstream Core errors are sanitized; facility conflicts and field errors\
+        \ are retained. Public dependency readiness; returns status UP only when Core\
+        \ readiness succeeds, otherwise structured 503."
+      operationId: TokenController_readiness_get__readiness
+      responses:
+        "200":
+          content:
+            application/json:
+              example:
+                status: UP
+              schema:
+                $ref: "#/components/schemas/Readiness"
+          description: Core readiness succeeded
+        "500":
+          content:
+            application/json:
+              examples:
+                INTERNAL_SERVER_ERROR:
+                  description: Retry only when safe; retain idempotency keys for uncertain
+                    creation results. Supply the correlation ID to support.
+                  summary: INTERNAL_SERVER_ERROR
+                  value:
+                    correlationId: 00000000-0000-4000-8000-000000000001
+                    description: An unexpected error occurred while processing the
+                      request.
+                    errorCode: INTERNAL_SERVER_ERROR
+                    path: /readiness
+                    status: 500
+                    timestamp: 2026-01-01T00:00:00Z
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: Request rejected; see named examples for error codes and recovery
+            guidance.
+        "503":
+          content:
+            application/json:
+              examples:
+                SERVICE_UNAVAILABLE:
+                  description: Retry only when safe; retain idempotency keys for uncertain
+                    creation results. Supply the correlation ID to support.
+                  summary: SERVICE_UNAVAILABLE
+                  value:
+                    correlationId: 00000000-0000-4000-8000-000000000001
+                    description: ArenaOps is temporarily unavailable. Please try again
+                      shortly.
+                    errorCode: SERVICE_UNAVAILABLE
+                    path: /readiness
+                    status: 503
+                    timestamp: 2026-01-01T00:00:00Z
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: Request rejected; see named examples for error codes and recovery
+            guidance.
+      security: []
+      summary: Check Login and Core readiness
+      tags:
+      - Authentication / BFF
+      x-handler: com.arena.login.controller.TokenController#readiness
+  /register:
+    get:
+      description: Service metadata. Login root is public; Core root requires JWT.
+        Health endpoint is public. /api/me reports whether a Spring OAuth2 principal
+        exists and does not establish a BFF session. /register redirects to the configured
+        frontend registration page.
+      operationId: HomeController_register_get__register
+      responses:
+        "302":
+          description: Redirect to configured frontend registration
+          headers:
+            Location:
+              description: Configured frontend registration URL
+              schema:
+                type: string
+                format: uri
+              style: simple
+        "500":
+          content:
+            application/json:
+              examples:
+                INTERNAL_SERVER_ERROR:
+                  description: Retry only when safe; retain idempotency keys for uncertain
+                    creation results. Supply the correlation ID to support.
+                  summary: INTERNAL_SERVER_ERROR
+                  value:
+                    correlationId: 00000000-0000-4000-8000-000000000001
+                    description: An unexpected error occurred while processing the
+                      request.
+                    errorCode: INTERNAL_SERVER_ERROR
+                    path: /register
+                    status: 500
+                    timestamp: 2026-01-01T00:00:00Z
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: Request rejected; see named examples for error codes and recovery
+            guidance.
+      security: []
+      summary: Redirect to frontend registration
+      tags:
+      - Service metadata
+      x-handler: com.arena.login.controller.HomeController#register
+  /token:
+    post:
+      description: "BFF routes have /api-prefixed and root aliases, including supported\
+        \ trailing slashes. Bearer tokens remain server-side in the JSESSIONID session.\
+        \ Downstream Core errors are sanitized; facility conflicts and field errors\
+        \ are retained. Public authorization-code exchange using the existing PKCE\
+        \ verifier. The authorization code is single-use; never replay it after an\
+        \ uncertain response. Returns UserInfo, never TokenResponse. Establishes a\
+        \ server-side session only after Core access validation. redirectUri must\
+        \ match the original browser authorization flow."
+      operationId: TokenController_validateToken_post__token
+      requestBody:
+        content:
+          application/json:
+            example:
+              code: C1
+              codeVerifier: EXAMPLE_ONLY_VERIFIER_012345678901234567890123456789
+              redirectUri: http://localhost:4200/login/callback
+            schema:
+              $ref: "#/components/schemas/TokenRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              example:
+                email: person@example.test
+                name: Example Academy
+                role: OWNER
+                roles:
+                - example
+                username: example.user
+              schema:
+                $ref: "#/components/schemas/UserInfo"
+          description: BFF user identity; no tokens returned
+        "400":
+          content:
+            application/json:
+              examples:
+                INVALID_REQUEST:
+                  description: Correct the request; do not retry unchanged.
+                  summary: INVALID_REQUEST
+                  value:
+                    correlationId: 00000000-0000-4000-8000-000000000001
+                    description: The request is invalid.
+                    errorCode: INVALID_REQUEST
+                    path: /token
+                    status: 400
+                    timestamp: 2026-01-01T00:00:00Z
+                VALIDATION_FAILED:
+                  description: Correct the request; do not retry unchanged.
+                  summary: VALIDATION_FAILED
+                  value:
+                    correlationId: 00000000-0000-4000-8000-000000000001
+                    description: The request contains invalid fields.
+                    errorCode: VALIDATION_FAILED
+                    fieldErrors:
+                      field: Review the validation rule for this field.
+                    path: /token
+                    reasonCode: INVALID_REQUEST_FIELDS
+                    status: 400
+                    timestamp: 2026-01-01T00:00:00Z
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: Request rejected; see named examples for error codes and recovery
+            guidance.
+        "401":
+          content:
+            application/json:
+              examples:
+                AUTHENTICATION_FAILED:
+                  description: Sign in again.
+                  summary: AUTHENTICATION_FAILED
+                  value:
+                    correlationId: 00000000-0000-4000-8000-000000000001
+                    description: Your sign-in session is invalid or expired. Please
+                      sign in again.
+                    errorCode: AUTHENTICATION_FAILED
+                    path: /token
+                    status: 401
+                    timestamp: 2026-01-01T00:00:00Z
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: Request rejected; see named examples for error codes and recovery
+            guidance.
+        "403":
+          content:
+            application/json:
+              examples:
+                ACCESS_DENIED:
+                  description: Use an authorized active account; do not change tenant
+                    identifiers to bypass access.
+                  summary: ACCESS_DENIED
+                  value:
+                    correlationId: 00000000-0000-4000-8000-000000000001
+                    description: You do not have permission to perform this operation.
+                    errorCode: ACCESS_DENIED
+                    path: /token
+                    status: 403
+                    timestamp: 2026-01-01T00:00:00Z
+                CUSTOMER_ACCESS_BLOCKED:
+                  description: Use an authorized active account; do not change tenant
+                    identifiers to bypass access.
+                  summary: CUSTOMER_ACCESS_BLOCKED
+                  value:
+                    correlationId: 00000000-0000-4000-8000-000000000001
+                    description: Your ArenaOps account does not currently have access.
+                      Please contact your administrator.
+                    errorCode: CUSTOMER_ACCESS_BLOCKED
+                    path: /token
+                    status: 403
+                    timestamp: 2026-01-01T00:00:00Z
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: Request rejected; see named examples for error codes and recovery
+            guidance.
+        "415":
+          content:
+            application/json:
+              examples:
+                UNSUPPORTED_MEDIA_TYPE:
+                  description: Correct the request; do not retry unchanged.
+                  summary: UNSUPPORTED_MEDIA_TYPE
+                  value:
+                    correlationId: 00000000-0000-4000-8000-000000000001
+                    description: This request format is not supported.
+                    errorCode: UNSUPPORTED_MEDIA_TYPE
+                    path: /token
+                    status: 415
+                    timestamp: 2026-01-01T00:00:00Z
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: Request rejected; see named examples for error codes and recovery
+            guidance.
+        "500":
+          content:
+            application/json:
+              examples:
+                INTERNAL_SERVER_ERROR:
+                  description: Retry only when safe; retain idempotency keys for uncertain
+                    creation results. Supply the correlation ID to support.
+                  summary: INTERNAL_SERVER_ERROR
+                  value:
+                    correlationId: 00000000-0000-4000-8000-000000000001
+                    description: An unexpected error occurred while processing the
+                      request.
+                    errorCode: INTERNAL_SERVER_ERROR
+                    path: /token
+                    status: 500
+                    timestamp: 2026-01-01T00:00:00Z
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: Request rejected; see named examples for error codes and recovery
+            guidance.
+        "503":
+          content:
+            application/json:
+              examples:
+                IDENTITY_PROVIDER_UNAVAILABLE:
+                  description: Retry only when safe; retain idempotency keys for uncertain
+                    creation results. Supply the correlation ID to support.
+                  summary: IDENTITY_PROVIDER_UNAVAILABLE
+                  value:
+                    correlationId: 00000000-0000-4000-8000-000000000001
+                    description: Sign-in services are temporarily unavailable. Please
+                      try again shortly.
+                    errorCode: IDENTITY_PROVIDER_UNAVAILABLE
+                    path: /token
+                    status: 503
+                    timestamp: 2026-01-01T00:00:00Z
+                SERVICE_UNAVAILABLE:
+                  description: Retry only when safe; retain idempotency keys for uncertain
+                    creation results. Supply the correlation ID to support.
+                  summary: SERVICE_UNAVAILABLE
+                  value:
+                    correlationId: 00000000-0000-4000-8000-000000000001
+                    description: ArenaOps is temporarily unavailable. Please try again
+                      shortly.
+                    errorCode: SERVICE_UNAVAILABLE
+                    path: /token
+                    status: 503
+                    timestamp: 2026-01-01T00:00:00Z
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: Request rejected; see named examples for error codes and recovery
+            guidance.
+      security: []
+      summary: Exchange a browser authorization code for a BFF session
+      tags:
+      - Authentication / BFF
+      x-handler: com.arena.login.controller.TokenController#validateToken
+  /token/:
+    post:
+      description: "BFF routes have /api-prefixed and root aliases, including supported\
+        \ trailing slashes. Bearer tokens remain server-side in the JSESSIONID session.\
+        \ Downstream Core errors are sanitized; facility conflicts and field errors\
+        \ are retained. Public authorization-code exchange using the existing PKCE\
+        \ verifier. The authorization code is single-use; never replay it after an\
+        \ uncertain response. Returns UserInfo, never TokenResponse. Establishes a\
+        \ server-side session only after Core access validation. redirectUri must\
+        \ match the original browser authorization flow."
+      operationId: TokenController_validateToken_post__token_
+      requestBody:
+        content:
+          application/json:
+            example:
+              code: C1
+              codeVerifier: EXAMPLE_ONLY_VERIFIER_012345678901234567890123456789
+              redirectUri: http://localhost:4200/login/callback
+            schema:
+              $ref: "#/components/schemas/TokenRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              example:
+                email: person@example.test
+                name: Example Academy
+                role: OWNER
+                roles:
+                - example
+                username: example.user
+              schema:
+                $ref: "#/components/schemas/UserInfo"
+          description: BFF user identity; no tokens returned
+        "400":
+          content:
+            application/json:
+              examples:
+                INVALID_REQUEST:
+                  description: Correct the request; do not retry unchanged.
+                  summary: INVALID_REQUEST
+                  value:
+                    correlationId: 00000000-0000-4000-8000-000000000001
+                    description: The request is invalid.
+                    errorCode: INVALID_REQUEST
+                    path: /token/
+                    status: 400
+                    timestamp: 2026-01-01T00:00:00Z
+                VALIDATION_FAILED:
+                  description: Correct the request; do not retry unchanged.
+                  summary: VALIDATION_FAILED
+                  value:
+                    correlationId: 00000000-0000-4000-8000-000000000001
+                    description: The request contains invalid fields.
+                    errorCode: VALIDATION_FAILED
+                    fieldErrors:
+                      field: Review the validation rule for this field.
+                    path: /token/
+                    reasonCode: INVALID_REQUEST_FIELDS
+                    status: 400
+                    timestamp: 2026-01-01T00:00:00Z
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: Request rejected; see named examples for error codes and recovery
+            guidance.
+        "401":
+          content:
+            application/json:
+              examples:
+                AUTHENTICATION_FAILED:
+                  description: Sign in again.
+                  summary: AUTHENTICATION_FAILED
+                  value:
+                    correlationId: 00000000-0000-4000-8000-000000000001
+                    description: Your sign-in session is invalid or expired. Please
+                      sign in again.
+                    errorCode: AUTHENTICATION_FAILED
+                    path: /token/
+                    status: 401
+                    timestamp: 2026-01-01T00:00:00Z
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: Request rejected; see named examples for error codes and recovery
+            guidance.
+        "403":
+          content:
+            application/json:
+              examples:
+                ACCESS_DENIED:
+                  description: Use an authorized active account; do not change tenant
+                    identifiers to bypass access.
+                  summary: ACCESS_DENIED
+                  value:
+                    correlationId: 00000000-0000-4000-8000-000000000001
+                    description: You do not have permission to perform this operation.
+                    errorCode: ACCESS_DENIED
+                    path: /token/
+                    status: 403
+                    timestamp: 2026-01-01T00:00:00Z
+                CUSTOMER_ACCESS_BLOCKED:
+                  description: Use an authorized active account; do not change tenant
+                    identifiers to bypass access.
+                  summary: CUSTOMER_ACCESS_BLOCKED
+                  value:
+                    correlationId: 00000000-0000-4000-8000-000000000001
+                    description: Your ArenaOps account does not currently have access.
+                      Please contact your administrator.
+                    errorCode: CUSTOMER_ACCESS_BLOCKED
+                    path: /token/
+                    status: 403
+                    timestamp: 2026-01-01T00:00:00Z
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: Request rejected; see named examples for error codes and recovery
+            guidance.
+        "415":
+          content:
+            application/json:
+              examples:
+                UNSUPPORTED_MEDIA_TYPE:
+                  description: Correct the request; do not retry unchanged.
+                  summary: UNSUPPORTED_MEDIA_TYPE
+                  value:
+                    correlationId: 00000000-0000-4000-8000-000000000001
+                    description: This request format is not supported.
+                    errorCode: UNSUPPORTED_MEDIA_TYPE
+                    path: /token/
+                    status: 415
+                    timestamp: 2026-01-01T00:00:00Z
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: Request rejected; see named examples for error codes and recovery
+            guidance.
+        "500":
+          content:
+            application/json:
+              examples:
+                INTERNAL_SERVER_ERROR:
+                  description: Retry only when safe; retain idempotency keys for uncertain
+                    creation results. Supply the correlation ID to support.
+                  summary: INTERNAL_SERVER_ERROR
+                  value:
+                    correlationId: 00000000-0000-4000-8000-000000000001
+                    description: An unexpected error occurred while processing the
+                      request.
+                    errorCode: INTERNAL_SERVER_ERROR
+                    path: /token/
+                    status: 500
+                    timestamp: 2026-01-01T00:00:00Z
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: Request rejected; see named examples for error codes and recovery
+            guidance.
+        "503":
+          content:
+            application/json:
+              examples:
+                IDENTITY_PROVIDER_UNAVAILABLE:
+                  description: Retry only when safe; retain idempotency keys for uncertain
+                    creation results. Supply the correlation ID to support.
+                  summary: IDENTITY_PROVIDER_UNAVAILABLE
+                  value:
+                    correlationId: 00000000-0000-4000-8000-000000000001
+                    description: Sign-in services are temporarily unavailable. Please
+                      try again shortly.
+                    errorCode: IDENTITY_PROVIDER_UNAVAILABLE
+                    path: /token/
+                    status: 503
+                    timestamp: 2026-01-01T00:00:00Z
+                SERVICE_UNAVAILABLE:
+                  description: Retry only when safe; retain idempotency keys for uncertain
+                    creation results. Supply the correlation ID to support.
+                  summary: SERVICE_UNAVAILABLE
+                  value:
+                    correlationId: 00000000-0000-4000-8000-000000000001
+                    description: ArenaOps is temporarily unavailable. Please try again
+                      shortly.
+                    errorCode: SERVICE_UNAVAILABLE
+                    path: /token/
+                    status: 503
+                    timestamp: 2026-01-01T00:00:00Z
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: Request rejected; see named examples for error codes and recovery
+            guidance.
+      security: []
+      summary: Exchange a browser authorization code for a BFF session
+      tags:
+      - Authentication / BFF
+      x-handler: com.arena.login.controller.TokenController#validateToken
+  /user:
+    get:
+      description: "BFF routes have /api-prefixed and root aliases, including supported\
+        \ trailing slashes. Bearer tokens remain server-side in the JSESSIONID session.\
+        \ Downstream Core errors are sanitized; facility conflicts and field errors\
+        \ are retained. Requires an established BFF session. Validates Core access,\
+        \ refreshes once on downstream 401, and returns UserInfo. Disabled/expired/revoked\
+        \ access may invalidate the session."
+      operationId: TokenController_getUserInfo_get__user
+      responses:
+        "200":
+          content:
+            application/json:
+              example:
+                email: person@example.test
+                name: Example Academy
+                role: OWNER
+                roles:
+                - example
+                username: example.user
+              schema:
+                $ref: "#/components/schemas/UserInfo"
+          description: BFF user identity; no tokens returned
+        "401":
+          content:
+            application/json:
+              examples:
+                AUTHENTICATION_FAILED:
+                  description: Sign in again.
+                  summary: AUTHENTICATION_FAILED
+                  value:
+                    correlationId: 00000000-0000-4000-8000-000000000001
+                    description: Your sign-in session is invalid or expired. Please
+                      sign in again.
+                    errorCode: AUTHENTICATION_FAILED
+                    path: /user
+                    status: 401
+                    timestamp: 2026-01-01T00:00:00Z
+                AUTHENTICATION_REQUIRED:
+                  description: Sign in again.
+                  summary: AUTHENTICATION_REQUIRED
+                  value:
+                    correlationId: 00000000-0000-4000-8000-000000000001
+                    description: Please sign in to continue.
+                    errorCode: AUTHENTICATION_REQUIRED
+                    path: /user
+                    status: 401
+                    timestamp: 2026-01-01T00:00:00Z
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: Request rejected; see named examples for error codes and recovery
+            guidance.
+        "403":
+          content:
+            application/json:
+              examples:
+                ACCESS_DENIED:
+                  description: Use an authorized active account; do not change tenant
+                    identifiers to bypass access.
+                  summary: ACCESS_DENIED
+                  value:
+                    correlationId: 00000000-0000-4000-8000-000000000001
+                    description: You do not have permission to perform this operation.
+                    errorCode: ACCESS_DENIED
+                    path: /user
+                    status: 403
+                    timestamp: 2026-01-01T00:00:00Z
+                CUSTOMER_ACCESS_BLOCKED:
+                  description: Use an authorized active account; do not change tenant
+                    identifiers to bypass access.
+                  summary: CUSTOMER_ACCESS_BLOCKED
+                  value:
+                    correlationId: 00000000-0000-4000-8000-000000000001
+                    description: Your ArenaOps account does not currently have access.
+                      Please contact your administrator.
+                    errorCode: CUSTOMER_ACCESS_BLOCKED
+                    path: /user
+                    status: 403
+                    timestamp: 2026-01-01T00:00:00Z
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: Request rejected; see named examples for error codes and recovery
+            guidance.
+        "500":
+          content:
+            application/json:
+              examples:
+                INTERNAL_SERVER_ERROR:
+                  description: Retry only when safe; retain idempotency keys for uncertain
+                    creation results. Supply the correlation ID to support.
+                  summary: INTERNAL_SERVER_ERROR
+                  value:
+                    correlationId: 00000000-0000-4000-8000-000000000001
+                    description: An unexpected error occurred while processing the
+                      request.
+                    errorCode: INTERNAL_SERVER_ERROR
+                    path: /user
+                    status: 500
+                    timestamp: 2026-01-01T00:00:00Z
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: Request rejected; see named examples for error codes and recovery
+            guidance.
+        "503":
+          content:
+            application/json:
+              examples:
+                SERVICE_UNAVAILABLE:
+                  description: Retry only when safe; retain idempotency keys for uncertain
+                    creation results. Supply the correlation ID to support.
+                  summary: SERVICE_UNAVAILABLE
+                  value:
+                    correlationId: 00000000-0000-4000-8000-000000000001
+                    description: ArenaOps is temporarily unavailable. Please try again
+                      shortly.
+                    errorCode: SERVICE_UNAVAILABLE
+                    path: /user
+                    status: 503
+                    timestamp: 2026-01-01T00:00:00Z
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: Request rejected; see named examples for error codes and recovery
+            guidance.
+      security:
+      - sessionCookie: []
+      summary: Validate the BFF session and get the user
+      tags:
+      - Authentication / BFF
+      x-handler: com.arena.login.controller.TokenController#getUserInfo
+  /user/:
+    get:
+      description: "BFF routes have /api-prefixed and root aliases, including supported\
+        \ trailing slashes. Bearer tokens remain server-side in the JSESSIONID session.\
+        \ Downstream Core errors are sanitized; facility conflicts and field errors\
+        \ are retained. Requires an established BFF session. Validates Core access,\
+        \ refreshes once on downstream 401, and returns UserInfo. Disabled/expired/revoked\
+        \ access may invalidate the session."
+      operationId: TokenController_getUserInfo_get__user_
+      responses:
+        "200":
+          content:
+            application/json:
+              example:
+                email: person@example.test
+                name: Example Academy
+                role: OWNER
+                roles:
+                - example
+                username: example.user
+              schema:
+                $ref: "#/components/schemas/UserInfo"
+          description: BFF user identity; no tokens returned
+        "401":
+          content:
+            application/json:
+              examples:
+                AUTHENTICATION_FAILED:
+                  description: Sign in again.
+                  summary: AUTHENTICATION_FAILED
+                  value:
+                    correlationId: 00000000-0000-4000-8000-000000000001
+                    description: Your sign-in session is invalid or expired. Please
+                      sign in again.
+                    errorCode: AUTHENTICATION_FAILED
+                    path: /user/
+                    status: 401
+                    timestamp: 2026-01-01T00:00:00Z
+                AUTHENTICATION_REQUIRED:
+                  description: Sign in again.
+                  summary: AUTHENTICATION_REQUIRED
+                  value:
+                    correlationId: 00000000-0000-4000-8000-000000000001
+                    description: Please sign in to continue.
+                    errorCode: AUTHENTICATION_REQUIRED
+                    path: /user/
+                    status: 401
+                    timestamp: 2026-01-01T00:00:00Z
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: Request rejected; see named examples for error codes and recovery
+            guidance.
+        "403":
+          content:
+            application/json:
+              examples:
+                ACCESS_DENIED:
+                  description: Use an authorized active account; do not change tenant
+                    identifiers to bypass access.
+                  summary: ACCESS_DENIED
+                  value:
+                    correlationId: 00000000-0000-4000-8000-000000000001
+                    description: You do not have permission to perform this operation.
+                    errorCode: ACCESS_DENIED
+                    path: /user/
+                    status: 403
+                    timestamp: 2026-01-01T00:00:00Z
+                CUSTOMER_ACCESS_BLOCKED:
+                  description: Use an authorized active account; do not change tenant
+                    identifiers to bypass access.
+                  summary: CUSTOMER_ACCESS_BLOCKED
+                  value:
+                    correlationId: 00000000-0000-4000-8000-000000000001
+                    description: Your ArenaOps account does not currently have access.
+                      Please contact your administrator.
+                    errorCode: CUSTOMER_ACCESS_BLOCKED
+                    path: /user/
+                    status: 403
+                    timestamp: 2026-01-01T00:00:00Z
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: Request rejected; see named examples for error codes and recovery
+            guidance.
+        "500":
+          content:
+            application/json:
+              examples:
+                INTERNAL_SERVER_ERROR:
+                  description: Retry only when safe; retain idempotency keys for uncertain
+                    creation results. Supply the correlation ID to support.
+                  summary: INTERNAL_SERVER_ERROR
+                  value:
+                    correlationId: 00000000-0000-4000-8000-000000000001
+                    description: An unexpected error occurred while processing the
+                      request.
+                    errorCode: INTERNAL_SERVER_ERROR
+                    path: /user/
+                    status: 500
+                    timestamp: 2026-01-01T00:00:00Z
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: Request rejected; see named examples for error codes and recovery
+            guidance.
+        "503":
+          content:
+            application/json:
+              examples:
+                SERVICE_UNAVAILABLE:
+                  description: Retry only when safe; retain idempotency keys for uncertain
+                    creation results. Supply the correlation ID to support.
+                  summary: SERVICE_UNAVAILABLE
+                  value:
+                    correlationId: 00000000-0000-4000-8000-000000000001
+                    description: ArenaOps is temporarily unavailable. Please try again
+                      shortly.
+                    errorCode: SERVICE_UNAVAILABLE
+                    path: /user/
+                    status: 503
+                    timestamp: 2026-01-01T00:00:00Z
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: Request rejected; see named examples for error codes and recovery
+            guidance.
+      security:
+      - sessionCookie: []
+      summary: Validate the BFF session and get the user
+      tags:
+      - Authentication / BFF
+      x-handler: com.arena.login.controller.TokenController#getUserInfo
+components:
+  schemas:
+    ErrorResponse:
+      properties:
+        conflicts:
+          type: array
+          items:
+            type: object
+            additionalProperties:
+              type: object
+        correlationId:
+          type: string
+        description:
+          type: string
+        errorCode:
+          type: string
+          enum:
+          - FACILITY_INVALID_REQUEST
+          - FACILITY_VERSION_CONFLICT
+          - FACILITY_CAPABILITY_DISABLED
+          - FACILITY_UNSUPPORTED
+          - FACILITY_NOT_FOUND
+          - FACILITY_IDEMPOTENCY_CONFLICT
+          - FACILITY_COMMITMENT_EXISTS
+          - FACILITY_NOT_ELIGIBLE
+          - FACILITY_CONCURRENCY_FAILURE
+          - SINGLE_SPORT_LIMIT_EXCEEDED
+          - SPORT_SESSION_ACTIVE
+          - SPORT_RESERVATION_EXISTS
+          - TRAINING_SPORT_DUPLICATE
+          - TRAINING_DEPENDENCY_EXISTS
+          - INVALID_LOGO
+          - LOGO_TOO_LARGE
+          - INVALID_REQUEST
+          - VALIDATION_FAILED
+          - AUTHENTICATION_REQUIRED
+          - AUTHENTICATION_FAILED
+          - ACCESS_DENIED
+          - USER_DISABLED
+          - CUSTOMER_ACCESS_BLOCKED
+          - SUBSCRIPTION_EXPIRED
+          - SUBSCRIPTION_ACCESS_BLOCKED
+          - PAYMENT_REQUIRED
+          - CUSTOMER_NOT_FOUND
+          - CUSTOMER_ALREADY_EXISTS
+          - DUPLICATE_USERNAME
+          - DUPLICATE_EMAIL
+          - STAFF_REGISTRATION_UNCERTAIN
+          - USER_ALREADY_EXISTS
+          - INVITATION_NOT_FOUND
+          - INVITATION_INVALID
+          - INVITATION_EXPIRED
+          - INVITATION_ALREADY_CONSUMED
+          - INVITATION_REVOKED
+          - INVITATION_EMAIL_MISMATCH
+          - INVITATION_NOT_READY
+          - SUBSCRIPTION_NOT_FOUND
+          - SUBSCRIPTION_CANCELLED
+          - GRACE_PERIOD_ALREADY_ACTIVE
+          - GRACE_PERIOD_NOT_ALLOWED
+          - INVALID_GRACE_END
+          - PUBLIC_BOOKING_INVALID_MOBILE
+          - PUBLIC_BOOKING_INVALID_TIME
+          - PUBLIC_BOOKING_TIME_INCREMENT
+          - PUBLIC_BOOKING_WINDOW
+          - PUBLIC_BOOKING_OUTSIDE_HOURS
+          - PUBLIC_BOOKING_DURATION
+          - PUBLIC_BOOKING_DISABLED
+          - PUBLIC_BOOKING_INVALID_DETAILS
+          - PUBLIC_BOOKING_FACILITY_UNAVAILABLE
+          - PUBLIC_BOOKING_CONFLICT
+          - PUBLIC_SLUG_INVALID
+          - PUBLIC_SLUG_UNAVAILABLE
+          - PUBLIC_SLUG_CHANGE_NOT_ALLOWED
+          - PUBLIC_SITE_NOT_PUBLISHED
+          - INVALID_STATE
+          - RESOURCE_NOT_FOUND
+          - QR_CHECKIN_UNAVAILABLE
+          - TOO_MANY_REQUESTS
+          - SESSION_QUOTE_STALE
+          - CONFLICT
+          - EMAIL_DISABLED
+          - EMAIL_DELIVERY_FAILED
+          - IDENTITY_PROVIDER_UNAVAILABLE
+          - IDENTITY_CREATION_FAILED
+          - SERVICE_UNAVAILABLE
+          - INTERNAL_SERVER_ERROR
+          - METHOD_NOT_ALLOWED
+          - UNSUPPORTED_MEDIA_TYPE
+          - NOT_ACCEPTABLE
+        fieldErrors:
+          type: object
+          additionalProperties: {}
+          description: Validation errors keyed by field name.
+        path:
+          type: string
+        reasonCode:
+          type: string
+        status:
+          type: integer
+          format: int32
+        timestamp:
+          type: string
+    PrincipalState:
+      type: object
+      properties:
+        authenticated:
+          type: boolean
+        user:
+          type: object
+          additionalProperties: {}
+    Readiness:
+      type: object
+      properties:
+        status:
+          type: string
+          example: UP
+    ServiceStatus:
+      type: object
+      properties:
+        service:
+          type: string
+          example: arena-login
+        status:
+          type: string
+          example: ready
+    TokenRequest:
+      type: object
+      properties:
+        code:
+          type: string
+          description: Synthetic example only; never persist or log this value in
+            documentation
+          minLength: 1
+          writeOnly: true
+        codeVerifier:
+          type: string
+          description: Synthetic example only; never persist or log this value in
+            documentation
+          minLength: 1
+          pattern: "[A-Za-z0-9._~-]{43,128}"
+          writeOnly: true
+        redirectUri:
+          type:
+          - string
+          - "null"
+      required:
+      - code
+      - codeVerifier
+    UserInfo:
+      type: object
+      properties:
+        email:
+          type: string
+        name:
+          type: string
+        role:
+          type: string
+        roles:
+          type: array
+          items:
+            type: string
+        username:
+          type: string
+  securitySchemes:
+    sessionCookie:
+      description: Session established by POST /api/token; tokens remain server-side.
+      in: cookie
+      name: JSESSIONID
+      type: apiKey
+x-error-catalog:
+  ACCESS_DENIED:
+    description: You do not have permission to perform this operation.
+    status: 403
+  AUTHENTICATION_FAILED:
+    description: Your sign-in session is invalid or expired. Please sign in again.
+    status: 401
+  AUTHENTICATION_REQUIRED:
+    description: Please sign in to continue.
+    status: 401
+  CONFLICT:
+    description: The operation conflicts with existing data. Please refresh and try
+      again.
+    status: 409
+  CUSTOMER_ACCESS_BLOCKED:
+    description: Your ArenaOps account does not currently have access. Please contact
+      your administrator.
+    status: 403
+  CUSTOMER_ALREADY_EXISTS:
+    description: A customer already exists with this email.
+    status: 409
+  CUSTOMER_NOT_FOUND:
+    description: Customer with the supplied identifier was not found.
+    status: 404
+  DUPLICATE_EMAIL:
+    description: An account already uses this email address. Enter a different email.
+    status: 409
+  DUPLICATE_USERNAME:
+    description: This username is already in use. Choose another username.
+    status: 409
+  EMAIL_DELIVERY_FAILED:
+    description: The invitation email could not be sent. Please retry the invitation.
+    status: 503
+  EMAIL_DISABLED:
+    description: Invitation email was not sent because email delivery is currently
+      disabled.
+    status: 503
+  FACILITY_CAPABILITY_DISABLED:
+    description: Enable Play & Facility Access on the active registered sport before
+      configuring facilities.
+    status: 409
+  FACILITY_COMMITMENT_EXISTS:
+    description: Ongoing or future commitments prevent this facility change.
+    status: 409
+  FACILITY_CONCURRENCY_FAILURE:
+    description: Concurrent facility changes prevented this operation. Refresh and
+      retry safely.
+    status: 409
+  FACILITY_IDEMPOTENCY_CONFLICT:
+    description: This operation key was already used with a different request. Reconcile
+      the original operation first.
+    status: 409
+  FACILITY_INVALID_REQUEST:
+    description: Review the highlighted facility fields.
+    status: 400
+  FACILITY_NOT_ELIGIBLE:
+    description: This facility is inactive or its pricing is incomplete.
+    status: 409
+  FACILITY_NOT_FOUND:
+    description: The facility was not found.
+    status: 404
+  FACILITY_UNSUPPORTED:
+    description: This sport or facility type is not operationally supported.
+    status: 400
+  FACILITY_VERSION_CONFLICT:
+    description: A facility was modified by another user. Review the latest configuration
+      before saving.
+    status: 409
+  GRACE_PERIOD_ALREADY_ACTIVE:
+    description: Customer already has an active grace period.
+    status: 409
+  GRACE_PERIOD_NOT_ALLOWED:
+    description: Grace period can only be granted when payment is due.
+    status: 409
+  IDENTITY_CREATION_FAILED:
+    description: Your account could not be created in the sign-in service. Please
+      try again.
+    status: 502
+  IDENTITY_PROVIDER_UNAVAILABLE:
+    description: Sign-in services are temporarily unavailable. Please try again shortly.
+    status: 503
+  INTERNAL_SERVER_ERROR:
+    description: An unexpected error occurred while processing the request.
+    status: 500
+  INVALID_GRACE_END:
+    description: Grace period end must be in the future.
+    status: 400
+  INVALID_LOGO:
+    description: "Upload a valid PNG, JPEG or WebP image (maximum 4096 pixels per\
+      \ side and 4 megapixels)."
+    status: 400
+  INVALID_REQUEST:
+    description: The request is invalid.
+    status: 400
+  INVALID_STATE:
+    description: This operation is not allowed in the current state.
+    status: 409
+  INVITATION_ALREADY_CONSUMED:
+    description: This invitation has already been used.
+    status: 409
+  INVITATION_EMAIL_MISMATCH:
+    description: Registration email must match the invited email.
+    status: 400
+  INVITATION_EXPIRED:
+    description: This invitation has expired. Please request a new invitation.
+    status: 409
+  INVITATION_INVALID:
+    description: The activation code is invalid.
+    status: 400
+  INVITATION_NOT_FOUND:
+    description: No invitation was found.
+    status: 404
+  INVITATION_NOT_READY:
+    description: This invitation is not available for registration.
+    status: 409
+  INVITATION_REVOKED:
+    description: This invitation has been revoked. Please request a new invitation.
+    status: 409
+  LOGO_TOO_LARGE:
+    description: The logo upload exceeds the allowed request size.
+    status: 413
+  METHOD_NOT_ALLOWED:
+    description: This request method is not supported.
+    status: 405
+  NOT_ACCEPTABLE:
+    description: The requested response format is not supported.
+    status: 406
+  PAYMENT_REQUIRED:
+    description: Your trial has ended. Please contact your administrator to continue.
+    status: 403
+  PUBLIC_BOOKING_CONFLICT:
+    description: That facility is already booked for the selected time. Choose another
+      time or facility.
+    status: 409
+  PUBLIC_BOOKING_DISABLED:
+    description: This club is not accepting reservation requests right now.
+    status: 400
+  PUBLIC_BOOKING_DURATION:
+    description: Choose one of the booking durations offered by this club.
+    status: 400
+  PUBLIC_BOOKING_FACILITY_UNAVAILABLE:
+    description: That facility is unavailable for booking. Refresh and choose an available
+      facility.
+    status: 404
+  PUBLIC_BOOKING_INVALID_DETAILS:
+    description: Check the required booking details and use a local date and time
+      without a timezone suffix.
+    status: 400
+  PUBLIC_BOOKING_INVALID_MOBILE:
+    description: "Enter a valid mobile number with its country code, for example +919876543210."
+    status: 400
+  PUBLIC_BOOKING_INVALID_TIME:
+    description: Choose a valid local date and time in the club timezone.
+    status: 400
+  PUBLIC_BOOKING_OUTSIDE_HOURS:
+    description: The entire reservation must fit within the club opening hours.
+    status: 400
+  PUBLIC_BOOKING_TIME_INCREMENT:
+    description: "Choose a start time at :00, :15, :30 or :45, with no seconds."
+    status: 400
+  PUBLIC_BOOKING_WINDOW:
+    description: Choose a start time at least 15 minutes and no more than 30 days
+      from now.
+    status: 400
+  PUBLIC_SITE_NOT_PUBLISHED:
+    description: Publish the club website in Public Website settings before showing
+      a QR code. Quick Start remains available.
+    status: 409
+  PUBLIC_SLUG_CHANGE_NOT_ALLOWED:
+    description: Acknowledge the address change and wait until the seven-day change
+      limit ends.
+    status: 409
+  PUBLIC_SLUG_INVALID:
+    description: "Choose a 3–40 character address using letters, numbers and single\
+      \ hyphens. System addresses are reserved."
+    status: 400
+  PUBLIC_SLUG_UNAVAILABLE:
+    description: This website address is already assigned to another club. Choose
+      a different address.
+    status: 409
+  QR_CHECKIN_UNAVAILABLE:
+    description: This QR code or check-in is unavailable or expired. Ask staff for
+      a new QR.
+    status: 410
+  RESOURCE_NOT_FOUND:
+    description: The requested resource was not found.
+    status: 404
+  SERVICE_UNAVAILABLE:
+    description: ArenaOps is temporarily unavailable. Please try again shortly.
+    status: 503
+  SESSION_QUOTE_STALE:
+    description: The stop quote expired or the session changed. Refresh the quote.
+    status: 409
+  SINGLE_SPORT_LIMIT_EXCEEDED:
+    description: Your club allows only one active sport. Deactivate your current sport
+      before activating another.
+    status: 409
+  SPORT_RESERVATION_EXISTS:
+    description: Reserved facility sessions prevent this change. Review and resolve
+      these reservations before deactivating the sport or disabling facility access.
+    status: 409
+  SPORT_SESSION_ACTIVE:
+    description: Running or paused facility sessions prevent this change. Stop these
+      sessions before deactivating the sport or disabling facility access.
+    status: 409
+  STAFF_REGISTRATION_UNCERTAIN:
+    description: Registration status could not be confirmed. Retry this request before
+      adding another staff member.
+    status: 503
+  SUBSCRIPTION_ACCESS_BLOCKED:
+    description: Your ArenaOps subscription is no longer active. Please contact your
+      administrator.
+    status: 403
+  SUBSCRIPTION_CANCELLED:
+    description: Cancelled customers must be reactivated before recording payment.
+    status: 409
+  SUBSCRIPTION_EXPIRED:
+    description: Your ArenaOps subscription has expired. Please contact your administrator.
+    status: 403
+  SUBSCRIPTION_NOT_FOUND:
+    description: No subscription was found for this customer.
+    status: 404
+  TOO_MANY_REQUESTS:
+    description: Too many check-in attempts. Please wait before trying again.
+    status: 429
+  TRAINING_DEPENDENCY_EXISTS:
+    description: Ongoing or future commitments prevent this change. Review the associated
+      training batches.
+    status: 409
+  TRAINING_SPORT_DUPLICATE:
+    description: This sport or activity is already registered. Use its existing registration.
+    status: 409
+  UNSUPPORTED_MEDIA_TYPE:
+    description: This request format is not supported.
+    status: 415
+  USER_ALREADY_EXISTS:
+    description: An account already exists with these details.
+    status: 409
+  USER_DISABLED:
+    description: Your user account is disabled. Please contact your administrator.
+    status: 403
+  VALIDATION_FAILED:
+    description: The request contains invalid fields.
+    status: 400
+x-routing-errors:
+  "404": "RESOURCE_NOT_FOUND: no matching handler/resource; security may reject first"
+  "405": "METHOD_NOT_ALLOWED: unsupported method on an existing route"
+  "406": "NOT_ACCEPTABLE: unsupported Accept format"

@@ -1,0 +1,9 @@
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.17.xsd">
+ <changeSet id="bug-002-staff-registration-intent" author="arena">
+  <sql><![CDATA[
+ALTER TABLE ${ARENA_DB_SCHEMA}.academy_staff ADD COLUMN registration_request_id VARCHAR(36), ADD COLUMN registration_hash VARCHAR(64), ADD COLUMN login_email VARCHAR(255);
+CREATE UNIQUE INDEX staff_registration_request_unique ON ${ARENA_DB_SCHEMA}.academy_staff(academy_id,registration_request_id) WHERE registration_request_id IS NOT NULL;
+CREATE UNIQUE INDEX staff_login_email_unique ON ${ARENA_DB_SCHEMA}.academy_staff(login_email) WHERE login_email IS NOT NULL;
+  ]]></sql>
+ </changeSet>
+</databaseChangeLog>

@@ -1,4 +1,5 @@
 import type { ArenaRuntimeConfig } from '../../environments/runtime-config';
+import { sha256 } from '@noble/hashes/sha256';
 
 const STATE_KEY = 'arenaops.oauth.state';
 const VERIFIER_KEY = 'arenaops.oauth.verifier';
@@ -9,9 +10,17 @@ function base64Url(bytes: Uint8Array): string {
 
 export async function authorizationUrl(config: ArenaRuntimeConfig, origin: string, storage: Storage,
     cryptoProvider: Crypto = crypto, resetPassword = false): Promise<string> {
+  if (!cryptoProvider?.subtle && config.arenaEnv !== 'dev') {
+    throw new Error('Sign-in requires a secure connection. Open ArenaOps using HTTPS.');
+  }
   const verifier = base64Url(cryptoProvider.getRandomValues(new Uint8Array(32)));
   const state = base64Url(cryptoProvider.getRandomValues(new Uint8Array(32)));
-  const digest = await cryptoProvider.subtle.digest('SHA-256', new TextEncoder().encode(verifier));
+  const encodedVerifier = new TextEncoder().encode(verifier);
+  // HTTP DEV LAN origins lack SubtleCrypto, but still provide secure random values.
+  // Keep the same S256 PKCE protection; remote environments require Web Crypto.
+  const digest = cryptoProvider.subtle
+    ? new Uint8Array(await cryptoProvider.subtle.digest('SHA-256', encodedVerifier))
+    : sha256(encodedVerifier);
   storage.setItem(STATE_KEY, state);
   storage.setItem(VERIFIER_KEY, verifier);
   const endpoint = resetPassword ? 'login-actions/reset-credentials' : 'protocol/openid-connect/auth';

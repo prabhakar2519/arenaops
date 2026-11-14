@@ -14,12 +14,18 @@ class EnvironmentProfilesTest {
   @TempDir Path directory;
 
   @Test
-  void profilesResolveRealmEndpointsAndOnlyDevImportsLocalSecrets() throws Exception {
+  void profilesResolveRealmEndpointsAndDoNotImportInfrastructureEnv() throws Exception {
     Files.writeString(directory.resolve(".env"), "LOCAL_SECRET_PROBE=local-only\n");
+    for (String file : new String[]{"application.yaml","application-sit.yaml","application-prod.yaml"}) {
+      try (var source = getClass().getResourceAsStream("/" + file)) {
+        Files.copy(source, directory.resolve(file));
+      }
+    }
+    Files.writeString(directory.resolve("application-dev.yaml"), "keycloak-admin:\n  realm: arena-dev\n");
     for (var profile : Map.of("dev", "arena-dev", "sit", "arena-sit", "prod", "arena").entrySet()) {
       Path output = directory.resolve(profile.getKey() + ".log");
       var builder = new ProcessBuilder(Path.of(System.getProperty("java.home"), "bin", "java").toString(), "-cp",
-          System.getProperty("java.class.path"), Probe.class.getName(), profile.getKey(), profile.getValue());
+          System.getProperty("java.class.path"), Probe.class.getName(), profile.getKey(), profile.getValue(), directory.resolve("application.yaml").toUri().toString());
       builder.directory(directory.toFile()).redirectErrorStream(true).redirectOutput(output.toFile());
       var env = builder.environment();
       env.remove("KC_REALM"); env.remove("LOCAL_SECRET_PROBE");
@@ -39,14 +45,14 @@ class EnvironmentProfilesTest {
   public static class Probe {
     public static void main(String[] args) {
       var app = new SpringApplication(Probe.class);
-      try (var context = app.run("--spring.profiles.active=" + args[0], "--spring.config.location=classpath:application.yaml",
-          "--spring.main.web-application-type=none", "--spring.main.banner-mode=off", "--logging.level.root=OFF")) {
+      try (var context = app.run("--spring.profiles.active=" + args[0], "--spring.config.location=" + args[2],
+          "--spring.main.web-application-type=none", "--spring.main.banner-mode=off", "--logging.level.root=OFF", "--logging.level.org.springframework.boot.env=OFF", "--logging.level.org.springframework.core.env=OFF")) {
         var env = context.getEnvironment();
         if (!args[1].equals(env.getProperty("keycloak-admin.realm"))) throw new IllegalStateException("Wrong realm");
         String tokenUri = env.getProperty("spring.security.oauth2.client.provider.keycloak.token-uri");
         if (!("http://keycloak:8080/auth/realms/" + args[1] + "/protocol/openid-connect/token").equals(tokenUri))
           throw new IllegalStateException("Wrong token endpoint");
-        if ((env.getProperty("LOCAL_SECRET_PROBE") != null) != args[0].equals("dev"))
+        if (env.getProperty("LOCAL_SECRET_PROBE") != null)
           throw new IllegalStateException("Remote profile imported local secret file");
         if (!args[0].equals("dev") && !Boolean.TRUE.equals(env.getProperty("server.servlet.session.cookie.secure", Boolean.class)))
           throw new IllegalStateException("Remote cookie is not secure");

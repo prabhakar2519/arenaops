@@ -54,7 +54,9 @@ class DatabaseSchemaStartupTest {
       for (Path file : files.filter(Files::isRegularFile).toList()) {
         Path output = target.resolve(source.relativize(file));
         Files.createDirectories(output.getParent());
-        Files.writeString(output, Files.readString(file).replace("${ARENA_DB_SCHEMA}", "arena"));
+        Files.writeString(output, Files.readString(file).replace("${ARENA_DB_SCHEMA}", "arena")
+            // Exclude all academy/session additions when reconstructing the pre-academy deployment.
+            .replaceAll("(?m)^[ \t]*<include file=\"db/changelog/features/R1_1[0-8]_[^\"]+\"/>", ""));
       }
     }
     var dataSource = new DriverManagerDataSource(System.getenv("ARENA_SCHEMA_TEST_DB_URL") + "arena_legacy", "validation", "validation");
@@ -70,12 +72,15 @@ class DatabaseSchemaStartupTest {
     }
     jdbc.execute("CREATE TABLE arena.compatibility_probe (value integer)");
     jdbc.execute("INSERT INTO arena.compatibility_probe VALUES (42)");
+    jdbc.execute("INSERT INTO arena.customer (id,customer_name,parlour_name,sports,onboarding_date,trial_starts_at,trial_ends_at,subscription_type,billing_amount,billing_start_date,next_due_date,payment_status,status,access_allowed) VALUES (nextval('arena.seq_customer'),'Legacy club','Legacy club','SINGLE',CURRENT_DATE,CURRENT_DATE,CURRENT_DATE,'MONTHLY',0,CURRENT_DATE,CURRENT_DATE,'NOT_DUE','ACTIVE',true)");
     int count = jdbc.queryForObject("SELECT count(*) FROM arena.databasechangelog", Integer.class);
     runner("prod", "arena")
         .withPropertyValues("spring.datasource.url=" + System.getenv("ARENA_SCHEMA_TEST_DB_URL") + "arena_legacy")
         .run(context -> {
           assertNull(context.getStartupFailure(), () -> "Existing arena migration failed: " + context.getStartupFailure());
-          assertEquals(count, jdbc.queryForObject("SELECT count(*) FROM arena.databasechangelog", Integer.class));
+          assertEquals(count + 18, jdbc.queryForObject("SELECT count(*) FROM arena.databasechangelog", Integer.class));
+          assertEquals("SINGLE", jdbc.queryForObject("SELECT sports FROM arena.customer WHERE customer_name = 'Legacy club'", String.class));
+          assertEquals(42, jdbc.queryForObject("SELECT count(*) FROM arena.sport_catalogue", Integer.class));
           assertEquals(42, jdbc.queryForObject("SELECT value FROM arena.compatibility_probe", Integer.class));
         });
   }
@@ -95,6 +100,11 @@ class DatabaseSchemaStartupTest {
           assertEquals(0, jdbc.queryForObject("SELECT count(*) FROM " + schema + ".databasechangeloglock WHERE locked", Integer.class));
           assertEquals(0, jdbc.queryForObject("SELECT count(*) FROM information_schema.tables WHERE table_schema = 'public' AND table_name IN ('customer','billing_order','databasechangelog')", Integer.class));
           jdbc.queryForObject("SELECT count(*) FROM " + schema + ".billing_order", Integer.class);
+          jdbc.queryForObject("SELECT count(*) FROM " + schema + ".facility_code_counter", Integer.class);
+          jdbc.queryForObject("SELECT count(*) FROM " + schema + ".facility_operation", Integer.class);
+          assertEquals(42, jdbc.queryForObject("SELECT count(*) FROM " + schema + ".sport_catalogue", Integer.class));
+          jdbc.queryForObject("SELECT count(*) FROM " + schema + ".training_batch", Integer.class);
+          assertEquals(2, jdbc.queryForObject("SELECT count(*) FROM information_schema.columns WHERE table_schema = ? AND table_name = 'academy_staff' AND column_name IN ('app_user_id','email') AND is_nullable = 'YES'", Integer.class, schema));
         });
       }
     }

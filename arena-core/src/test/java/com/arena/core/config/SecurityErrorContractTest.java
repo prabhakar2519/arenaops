@@ -21,10 +21,11 @@ class SecurityErrorContractTest {
   @Configuration
   @EnableWebMvc
   static class Beans {
+    @Bean com.arena.core.checkin.FacilityCheckinController checkins(){return new com.arena.core.checkin.FacilityCheckinController(mock(com.arena.core.checkin.PermanentCheckinService.class),mock(com.arena.core.publicclub.PublicClubHost.class));}
     @Bean ApiErrors apiErrors() { return new ApiErrors(new ObjectMapper()); }
     @Bean CustomerAccessFilter accessFilter(ApiErrors errors) {
       return new CustomerAccessFilter(mock(AppUserRepository.class), mock(CustomerAccessService.class),
-          mock(AdminAuthorizationService.class), errors);
+          mock(AdminAuthorizationService.class), errors,mock(com.arena.core.training.StaffLoginService.class));
     }
   }
 
@@ -39,6 +40,15 @@ class SecurityErrorContractTest {
       context.refresh();
       var mvc = MockMvcBuilders.webAppContextSetup(context)
           .addFilters(new CorrelationIdFilter(), context.getBean("springSecurityFilterChain", jakarta.servlet.Filter.class)).build();
+      mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post("/api/public/facility-check-ins/inspect").contentType("application/json").content("{\"token\":\""+"A".repeat(43)+"\"}"))
+          .andExpect(status().isOk());
+      mvc.perform(get("/api/public/facility-check-ins/inspect")).andExpect(status().isUnauthorized());
+      for(String path:java.util.List.of("/api/academy/staff/login-availability","/api/academy/staff/registration","/api/academy/staff/1/registration/retry"))mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post(path).contentType("application/json").content("{}")).andExpect(status().isUnauthorized()).andExpect(jsonPath("$.errorCode").value("AUTHENTICATION_REQUIRED"));
+      mvc.perform(get("/api/academy/facility-check-ins")).andExpect(status().isUnauthorized());
+      mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post("/api/academy/facility-check-ins/1/confirm").contentType("application/json").content("{}"))
+          .andExpect(status().isUnauthorized());
+      mvc.perform(get("/api/academy/public-site/preview")).andExpect(status().isUnauthorized());
+      mvc.perform(get("/api/academy/public-site/preview/logo")).andExpect(status().isUnauthorized());
       mvc.perform(get("/api/billing"))
           .andExpect(status().isUnauthorized()).andExpect(jsonPath("$.errorCode").value("AUTHENTICATION_REQUIRED"));
       mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post("/api/billing/orders/00000000-0000-0000-0000-000000000000/mock")

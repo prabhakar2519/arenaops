@@ -14,7 +14,7 @@ class AdminAuthorizationServiceTest {
       if (role.equals("ADMIN")) {
         var users = org.mockito.Mockito.mock(com.arena.core.repository.AppUserRepository.class);
         var access = org.mockito.Mockito.mock(CustomerAccessService.class);
-        var controller = new com.arena.core.controller.AccessController(users, service, access);
+        var controller = new com.arena.core.controller.AccessController(users, service, access,org.mockito.Mockito.mock(com.arena.core.training.StaffLoginService.class));
         assertEquals(true, controller.check(jwt).getBody().get("allowed"));
         org.mockito.Mockito.verifyNoInteractions(users, access);
       }

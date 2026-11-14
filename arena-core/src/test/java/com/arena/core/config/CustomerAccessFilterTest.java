@@ -27,7 +27,7 @@ class CustomerAccessFilterTest {
     var user = AppUserEntity.builder().username("owner").customerId(1L).build();
     when(users.findByUsername("owner")).thenReturn(Optional.of(user));
     doThrow(new ArenaOpsException(ErrorCode.CUSTOMER_ACCESS_BLOCKED)).when(access).assertCustomerCanUseApp(user);
-    var filter = new CustomerAccessFilter(users, access, authorization, new ApiErrors(new ObjectMapper()));
+    var filter = new CustomerAccessFilter(users, access, authorization, new ApiErrors(new ObjectMapper()), mock(com.arena.core.training.StaffLoginService.class));
     var response = new MockHttpServletResponse();
     try {
       SecurityContextHolder.getContext().setAuthentication(new JwtAuthenticationToken(jwt));

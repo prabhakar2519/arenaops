@@ -1,0 +1,21 @@
+{
+  "date": "2026-11-14",
+  "frontend": {
+    "tests": 190,
+    "failures": 0
+  },
+  "angularBuild": "passed",
+  "e2eTypecheck": "passed",
+  "playwright": {
+    "startTime": "2026-11-14T11:13:44.990Z",
+    "duration": 47420.570999999996,
+    "expected": 44,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  },
+  "projects": [
+    "desktop-light",
+    "tablet-dark"
+  ]
+}

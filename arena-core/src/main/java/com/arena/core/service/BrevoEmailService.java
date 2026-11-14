@@ -27,14 +27,7 @@ public class BrevoEmailService implements InvitationEmailService {
 
   private final JavaMailSender mailSender;
 
-  @Value("${spring.mail.host}")
-  private String smtpHost;
-  @Value("${spring.mail.port}")
-  private int smtpPort;
-  @Value("${spring.mail.username}")
-  private String smtpUsername;
-  @Value("${spring.mail.password}")
-  private String smtpPassword;
+  // JavaMailSender receives spring.mail credentials through Spring Boot configuration.
 
   @Value("${app.email.from}")
   private String from;

@@ -1,0 +1,9 @@
+# Local documentation only. Do not enable this profile on a public deployment.
+springdoc:
+  api-docs:
+    enabled: true
+  swagger-ui:
+    enabled: true
+arena:
+  api-docs:
+    enabled: true

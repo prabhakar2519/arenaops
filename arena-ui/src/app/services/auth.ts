@@ -1,16 +1,20 @@
+import type { BusinessBranding } from '../business-profile/business-profile.service';
 import { environment } from '../../environments/environment';
 import { authorizationUrl, consumeVerifier } from './oidc';
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { BehaviorSubject, Observable, defer } from 'rxjs';
-import { tap, timeout } from 'rxjs/operators';
+import { BehaviorSubject, Observable, defer, of } from 'rxjs';
+import { tap, timeout, switchMap, map } from 'rxjs/operators';
 
-export type UserRole = 'ADMIN' | 'OWNER' | 'COACH' | 'STAFF' | null;
+export type UserRole = 'ADMIN' | 'PLATFORM_ADMIN' | 'OWNER' | 'MANAGER' | 'INSTRUCTOR' | 'COACH' | 'STAFF' | null;
+
+export interface AcademyContext { eligible: boolean; workspaceEligible?: boolean; name?: string; timezone?: string; skipped?: boolean; setupComplete?: boolean; version?: number; }
 
 export interface User {
   username?: string;
   name?: string;
   role?: UserRole;
+  roles?: string[];
   error?: any;
 }
 
@@ -43,6 +47,17 @@ export class AuthService {
   private http = inject(HttpClient);
   private currentUserSubject = new BehaviorSubject<User | null>(null);
   public currentUser$ = this.currentUserSubject.asObservable();
+
+  private businessBrandingSubject=new BehaviorSubject<BusinessBranding|null>(null);
+  get businessBrandingValue(){return this.businessBrandingSubject.value;}
+  setBusinessBranding(branding:BusinessBranding|null){this.businessBrandingSubject.next(branding);}
+  fetchBusinessBranding(){return this.http.get<BusinessBranding>('/api/business-profile/branding').pipe(tap(b=>this.setBusinessBranding(b)));}
+  private academyContextSubject = new BehaviorSubject<AcademyContext | null>(null);
+  public academyContext$ = this.academyContextSubject.asObservable();
+  get academyContextValue(): AcademyContext | null { return this.academyContextSubject.value; }
+  fetchAcademyContext(): Observable<AcademyContext> {
+    return this.http.get<AcademyContext>('/api/academy/context').pipe(tap(context => this.academyContextSubject.next(context)));
+  }
 
   private parlourNameSubject = new BehaviorSubject<string | null>(null);
   public parlourName$ = this.parlourNameSubject.asObservable();
@@ -158,6 +173,7 @@ export class AuthService {
     // The backend (BFF) will check its own session
     return this.http.get<User>('/api/user').pipe(
       timeout(20000),
+      switchMap(user => this.membershipUser(user)),
       tap({
         next: user => {
           localStorage.setItem('currentUser', JSON.stringify(user));
@@ -166,6 +182,7 @@ export class AuthService {
         error: () => {
           localStorage.removeItem('currentUser');
           this.currentUserSubject.next(null);
+    this.academyContextSubject.next(null);this.setBusinessBranding(null);
         }
       })
     );
@@ -181,9 +198,9 @@ export class AuthService {
       return this.http.post<User>('/api/token', { code, redirectUri, codeVerifier });
     }).pipe(
       timeout(20000),
+      switchMap(user => this.membershipUser(user)),
       tap({
         next: user => {
-          console.log('User info received from BFF:', user);
 
           // Store user profile in localStorage for UI purposes
           localStorage.setItem('currentUser', JSON.stringify(user));
@@ -192,6 +209,7 @@ export class AuthService {
         error: () => {
           localStorage.removeItem('currentUser');
           this.currentUserSubject.next(null);
+    this.academyContextSubject.next(null);this.setBusinessBranding(null);
         }
       })
     );
@@ -213,6 +231,7 @@ export class AuthService {
     localStorage.removeItem('parlours');
     localStorage.removeItem('activeSport');
     this.currentUserSubject.next(null);
+    this.academyContextSubject.next(null);this.setBusinessBranding(null);
     this.parlourNameSubject.next(null);
     this.parloursSubject.next([]);
     this.activeSportSubject.next('SNOOKER');
@@ -241,6 +260,7 @@ export class AuthService {
     sessionStorage.setItem(AuthService.ACCESS_DENIED_MESSAGE_KEY, message);
     sessionStorage.setItem(AuthService.FORCE_FRESH_LOGIN_KEY, 'true');
     this.currentUserSubject.next(null);
+    this.academyContextSubject.next(null);this.setBusinessBranding(null);
     this.parlourNameSubject.next(null);
     this.parloursSubject.next([]);
     this.activeSportSubject.next('SNOOKER');
@@ -264,8 +284,13 @@ export class AuthService {
     return this.currentUserSubject.value;
   }
 
+  private membershipUser(user:User):Observable<User> {
+    if(user.role==='ADMIN'||user.role==='PLATFORM_ADMIN'||user.role==='OWNER')return of(user);
+    return this.fetchAcademyContext().pipe(switchMap(context=>context.eligible ? this.http.get<{roles:string[]}>('/api/academy/membership').pipe(map(m=>({...user,roles:m.roles,role: (m.roles.includes('MANAGER')?'MANAGER':m.roles.includes('INSTRUCTOR')?'INSTRUCTOR':'STAFF') as UserRole}))) : of(user)));
+  }
   hasRole(role: UserRole): boolean {
-    return this.currentUserValue?.role === role;
+    if(role==='ADMIN'&&this.currentUserValue?.role==='PLATFORM_ADMIN')return true;
+    return this.currentUserValue?.role===role||!!(role&&this.currentUserValue?.roles?.includes(role));
   }
 
   isAuthenticated(): boolean {

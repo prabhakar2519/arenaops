@@ -2,6 +2,10 @@ server:
   port: 7701
 
 spring:
+  servlet:
+    multipart:
+      max-file-size: 2MB
+      max-request-size: 3MB
   application:
     name: arena-core
   datasource:
@@ -67,3 +71,22 @@ management:
     web:
       exposure:
         include: health,info
+
+# API documentation is opt-in; production/SIT remain disabled by default.
+springdoc:
+  api-docs:
+    enabled: false
+    version: OPENAPI_3_1
+  swagger-ui:
+    enabled: false
+    persist-authorization: false
+    supported-submit-methods: [get, post, put, patch, delete]
+    with-credentials: true
+  override-with-generic-response: false
+
+# Public club host assertions are signed by the BFF; provision a shared secret before publishing.
+arena.public.host-key: ${PUBLIC_CLUB_HOST_KEY:}
+arena.public.application-url: ${ARENAOPS_PUBLIC_APP_URL:${ARENAOPS_FRONTEND_URL:${APP_BASE_URL:}}}
+arena.public.domain: ${PUBLIC_CLUB_DOMAIN:arenaops.in}
+arena.public.scheme: ${PUBLIC_CLUB_SCHEME:https}
+arena.public.port: ${PUBLIC_CLUB_PORT:}

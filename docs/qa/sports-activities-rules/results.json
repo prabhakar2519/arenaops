@@ -1,0 +1,132 @@
+{
+  "date": "2026-11-14",
+  "backend": {
+    "arena-core": [
+      {
+        "class": "SportLifecycleTest",
+        "tests": 13,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      {
+        "class": "ActivityRegistrationTransactionTest",
+        "tests": 11,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      {
+        "class": "SportFacilityPreservationTest",
+        "tests": 3,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      {
+        "class": "FacilityServiceTest",
+        "tests": 18,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      {
+        "class": "FacilityControllerTest",
+        "tests": 3,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      {
+        "class": "LegacyFacilityBoundaryTest",
+        "tests": 4,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      {
+        "class": "RunningSessionServiceTest",
+        "tests": 22,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      {
+        "class": "ManagerAuthorizationTest",
+        "tests": 8,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      }
+    ],
+    "arena-login": [
+      {
+        "class": "FacilityProxyTest",
+        "tests": 3,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      {
+        "class": "SessionCheckoutProxyTest",
+        "tests": 1,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      }
+    ]
+  },
+  "documentation": {
+    "arena-core": [
+      {
+        "class": "OpenApiContractTest",
+        "tests": 2,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      {
+        "class": "DocumentationSecurityTest",
+        "tests": 1,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      }
+    ],
+    "arena-login": [
+      {
+        "class": "OpenApiContractTest",
+        "tests": 2,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      {
+        "class": "DocumentationSecurityTest",
+        "tests": 1,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      }
+    ]
+  },
+  "angularBuild": "passed",
+  "e2eTypecheck": "passed",
+  "diffCheck": "passed",
+  "frontend": {
+    "tests": 194,
+    "failures": 0
+  },
+  "playwright": {
+    "startTime": "2026-11-14T11:34:45.150Z",
+    "duration": 65140.897,
+    "expected": 50,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0,
+    "projects": [
+      "desktop-light",
+      "tablet-dark"
+    ]
+  }
+}

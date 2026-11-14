@@ -19,7 +19,7 @@ public class ApiErrors {
     public static ErrorResponse body(ErrorCode code, int status, HttpServletRequest request,
             Map<String, String> fields) {
         return new ErrorResponse(Instant.now().toString(), status, code,
-                fields == null ? null : "INVALID_REQUEST_FIELDS", code.getDescription(),
+                fields == null ? (code.name().startsWith("FACILITY_")?"CONCURRENT_CHANGE":null) : "INVALID_REQUEST_FIELDS", code.getDescription(),
                 request.getAttribute(jakarta.servlet.RequestDispatcher.ERROR_REQUEST_URI) instanceof String original
                         ? original : request.getRequestURI(),
                 CorrelationIdFilter.correlationId(request), fields);

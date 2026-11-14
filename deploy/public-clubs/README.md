@@ -1,0 +1,45 @@
+# Review-only public club hosting rollout
+
+**Do not apply automatically.** The user explicitly deferred DNS, certificate and running-service changes. These files are templates for a separately reviewed infrastructure deployment. No authoritative nameserver or production Namecheap API availability has been verified.
+
+## Existing setup and compatibility
+
+The inspected sibling infrastructure repository uses stock `caddy:2.8-alpine`, explicit `arenaops.in` and `sit.arenaops.in` blocks, separate environment networks/upstreams, an `/api` strip-prefix BFF route, and restricted Keycloak realm routes. The application workflow builds/deploys app images; it does not install Caddy or manage DNS. This implementation preserves that boundary. The shared Angular SPA is reusable across club hosts; no per-club container/database/deployment is needed.
+
+Stock Caddy was inspected locally with `caddy list-modules`: no DNS provider modules, including Namecheap, are present. It cannot automate this wildcard certificate with its current image. Caddy wildcard certificates require DNS-01 and the corresponding DNS module; an existing apex/SIT certificate does not establish wildcard coverage. See [Caddy patterns](https://caddyserver.com/docs/caddyfile/patterns) and [TLS configuration](https://caddyserver.com/docs/caddyfile/directives/tls).
+
+A [Namecheap Caddy provider](https://github.com/caddy-dns/namecheap) is available as a custom build module. Its current documented provider settings are shown in `public-dns-provider.namecheap.review`; this is a prepared integration option, not proof the account is eligible. [Namecheap API prerequisites](https://www.namecheap.com/support/api/intro/) include production API access and an allowlisted IPv4 address. A domain registered at Namecheap can use another authoritative DNS provider, so verify NS authority first. Review the provider/library record mutation behavior: [Namecheap setHosts](https://www.namecheap.com/support/api/methods/domains-dns/set-hosts/) can replace the record set. Back up **all** existing records, including MX/TXT/CAA/DKIM, and test safe preservation in a nonproduction zone before authorizing API writes.
+
+## Prerequisites and review gate
+
+1. Verify authoritative NS for `arenaops.in`, current A/AAAA/CNAME/MX/TXT/CAA records, DNSSEC and TTLs, using read-only DNS/account inspection. Do not infer authority from the registrar.
+2. Confirm where wildcard records and `_acme-challenge` TXT changes must be made. Explicit apex/SIT/system records remain unchanged. Review any wildcard AAAA record so IPv6 does not reach the wrong host.
+3. If Namecheap is authoritative, verify production API eligibility/access, API user/key, static egress IPv4 allowlisting and record-preservation behavior. Keep keys in infrastructure secrets with restricted file permissions; do not put DNS credentials in Git, app envs, UI or logs.
+4. If unavailable, use the actual authoritative provider and its supported Caddy DNS module; change only the provider snippet/custom image. Alternatively review dedicated `_acme-challenge` delegation with the chosen provider. Do not move nameservers as part of this app change. Wildcard public routing and application host resolution do not depend on Namecheap.
+5. Build a pinned custom Caddy image with a reviewed pinned module version/commit (xcaddy `--with github.com/caddy-dns/namecheap@<reviewed-version>` or the selected provider). Check its module list, security/update compatibility and image digest. Pinning/version selection belongs to the infrastructure review, not a guessed production tag here.
+6. Validate the real infrastructure Caddyfile merged with the wildcard block and provider snippet using the custom image, first with ACME staging. Preserve existing apex/SIT blocks, networks, certificate storage and explicit system hostnames. Ensure Caddy alone reaches BFF; Core is internal. Verify Caddy's forwarded client-IP sanitization and Tomcat trusted-proxy settings so the BFF abuse guard sees the correct client rather than an attacker-supplied IP or every request as one proxy.
+7. Keep the existing app release approvals. Add the same fresh >=32-character `PUBLIC_CLUB_HOST_KEY` environment secret to BFF/Core; defaults are empty and fail closed. Optional domain/scheme/port variables are in `runtime.env.example`. App workflow passes these only; no new DNS/infra deployment job is added. Use HTTPS and empty port for production. Configure secrets only after the routing/certificate review.
+
+## Prepared changes and deployment sequence
+
+- DNS proposal: wildcard A `* → <reviewed VPS public IPv4>`; wildcard AAAA only if supported and tested. Preserve all explicit records, especially apex and SIT. This proposal alone does not issue TLS certificates.
+- `Caddyfile.wildcard.review`: append wildcard public routing to the **infrastructure-owned** configuration. Import the chosen provider snippet at top level. Add `strict_sni_host on` to its existing global server options, after compatibility review on apex/SIT as well. Explicit existing apex/SIT host blocks take precedence. Reserved hosts/private API/auth/application routes are denied on club hosts. Public paths alone go to the existing PROD BFF, with original canonical Host and inbound internal assertions removed. Static SPA routes use the existing shared PROD UI. BFF signs the host; Core validates the signature and resolves an active published academy. Unknown club slugs expose no private data.
+- Validate/adapt the complete merged file before reload; retain a known-good copy and image digest. No second global Caddy block, new public Core port or wildcard Keycloak redirect is required.
+- In a nonproduction zone, verify DNS-01 issuance/renewal with staging first, TXT propagation/cleanup, storage persistence and all existing DNS records unchanged. Then separately approve production ACME and wildcard routing. Do not replace existing production/SIT certificates to perform this check.
+- Back up the database and deploy the additive application migration/images using the existing environment gates. Confirm both services share the signing key and correct domain, but keep sites unpublished until routing/HTTPS is validated.
+- After review, apply only the proposed wildcard DNS record and Caddy custom-image/config reload. Test existing apex login/callback, SIT, active operational sessions and existing certificates. Publish two test clubs and confirm distinct branding, unknown/unpublished hosts, strict SNI, no private routes, no cross-tenant QR, reservations/approvals, actual client-IP limits and mobile scanning.
+- Monitor ACME renewal, rejection/cooldown rates and 4xx/5xx counts without logging form bodies/contact numbers/QR nonce secrets. Exercise a staging renewal; do not claim renewal proven from a single local certificate.
+
+## Rollback
+
+1. Unpublish affected club sites/disable public bookings; revoke printed codes if required. Existing operational sessions and manual starts remain available.
+2. Restore the reviewed previous Caddy config **and image digest**, validate, then reload. Do not delete Caddy certificate storage, apex/SIT certificate material or unrelated containers.
+3. Remove only the newly introduced wildcard DNS records if approved; restore their previous values if replacing preexisting wildcard records. Preserve explicit PROD/SIT/MX/TXT/CAA records. Account for DNS caches/TTLs.
+4. Remove/rotate the app host-signing key to fail closed for public API access. Roll app images back via existing release tooling if needed. Keep the additive schema/data; do not drop customer/session/reservation records as an automatic rollback. Restore a database backup only through separately reviewed recovery procedures, accounting for sessions created since backup.
+5. Verify apex/SIT auth, sessions, billing and health. Keep customer retention/access controls operating while investigating; do not expose direct BFF/Core ports to bypass the edge.
+
+## Local multi-host HTTPS verification
+
+`Caddyfile.local` has only `speed.arenaops.test` and `shradha.arenaops.test` on 8443 and uses a disposable internal CA; it performs no public ACME/DNS operation. Configure `PUBLIC_LOCAL_UI` and `PUBLIC_LOCAL_BFF` to local listeners, plus app settings domain `arenaops.test`, scheme `https`, port `8443`, and matching test-only signing key in BFF/Core. For a genuine local stack publish matching slugs and configure actual BFF/Core; `artifacts/public-clubs/local-bff-fixture.py` is intentionally synthetic for routing-only checks.
+
+Use browser host resolver rules/hosts entries or `curl --resolve speed.arenaops.test:8443:127.0.0.1`. Trust only the disposable local CA for a real browser test; `-k`/ignoreHTTPSErrors is limited to the automated local fixture check and is never a production recommendation. Run the scripts in `artifacts/public-clubs` against the built UI. They distinguish fixture/API tests from actual HTTPS edge tests. The local Caddy configuration validated on stock Caddy; the production DNS-provider snippet still requires the custom module and verified account access before it can be validated or enabled.
