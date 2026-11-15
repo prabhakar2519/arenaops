@@ -35,7 +35,7 @@ try:
   try:token=request('/realms/master/protocol/openid-connect/token','POST',{'grant_type':'password','client_id':'admin-cli','username':'validation','password':'validation'},True)['access_token'];break
   except Exception:time.sleep(1)
  else:raise RuntimeError('Keycloak startup timed out')
- request('/admin/realms','POST',{'realm':'arena-mvp-validation','enabled':True,'emailTheme':'arena-academy','resetPasswordAllowed':True,'smtpServer':{'host':'127.0.0.1','port':str(server.server_address[1]),'from':'noreply@example.test','fromDisplayName':'ArenaOps','auth':'false','starttls':'false'},'clients':[{'clientId':'arena-ui','enabled':True,'publicClient':True,'standardFlowEnabled':True,'directAccessGrantsEnabled':False,'redirectUris':['http://127.0.0.1:4202/login/callback']}]})
+ request('/admin/realms','POST',{'realm':'arena-mvp-validation','enabled':True,'emailTheme':'arena-academy','resetPasswordAllowed':True,'smtpServer':{'host':'127.0.0.1','port':str(server.server_address[1]),'from':'noreply@example.test','fromDisplayName':'ArenaOps','auth':'false','starttls':'false'},'clients':[{'clientId':'arena-ui','enabled':True,'publicClient':True,'standardFlowEnabled':True,'directAccessGrantsEnabled':False,'redirectUris':['http://127.0.0.1:4202/login/callback','http://localhost:4200/login']}]})
  base='/admin/realms/arena-mvp-validation'
  action=request(base+'/authentication/required-actions/ARENA_STAFF_SETUP')
  assert action['enabled'] and not action['defaultAction'],'New realm action must register automatically'

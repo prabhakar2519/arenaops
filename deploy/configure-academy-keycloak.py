@@ -5,6 +5,7 @@ Secrets are read only from environment and never printed.
 """
 import argparse,json,os,urllib.request,urllib.parse
 from keycloak_subject_scope import ensure_subject_scope
+from keycloak_setup_redirect import ensure_setup_redirect
 p=argparse.ArgumentParser();p.add_argument('--url',required=True);p.add_argument('--realm',required=True);p.add_argument('--public-url',required=True);args=p.parse_args()
 def request(path,method='GET',data=None,token=None):
  body=None if data is None else json.dumps(data).encode()
@@ -27,6 +28,7 @@ try:
  action=request(base+'/authentication/required-actions/ARENA_STAFF_SETUP',token=token)
  action['enabled']=True;action['defaultAction']=False
  request(base+'/authentication/required-actions/ARENA_STAFF_SETUP','PUT',action,token)
+ ensure_setup_redirect(lambda path, method='GET', data=None: request(path,method,data,token),args.realm,args.public_url)
  realm=request(base,token=token)
  realm['emailTheme']='arena-academy';realm['resetPasswordAllowed']=True
  realm['attributes']={**realm.get('attributes',{}),'frontendUrl':args.public_url.rstrip('/')}
